@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dawa : trouve ton médicament à Dakar</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="bandeau-demo">Version de démonstration : pharmacies, prix et stocks fictifs.</div>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="logo" href="/"><span class="logo-pastille">✚</span> Dawa</a>
+      <nav class="nav">
+        <a href="/">Urgences</a>
+        <a href="/pharmacies" aria-current="page">Pharmacies</a>
+        <a href="/whatsapp">WhatsApp</a>
+        <a href="/pharmacie">Espace pharmacie</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="conteneur" style="padding-block: 28px;">
+    <h1>Trouve ton médicament sans faire le tour des pharmacies</h1>
+    <p class="sous-titre">Stock en temps réel dans les pharmacies partenaires de Dakar. Réserve, puis passe le récupérer.</p>
+
+    <form id="form-recherche" class="carte grille-recherche" autocomplete="off">
+      <div class="champ-suggestions">
+        <label for="q">Médicament</label>
+        <input id="q" name="q" placeholder="Ex. Doliprane, Coartem, amoxicilline…" required minlength="2"
+               role="combobox" aria-expanded="false" aria-controls="suggestions" aria-autocomplete="list">
+        <ul id="suggestions" class="suggestions cache" role="listbox"></ul>
+      </div>
+      <div>
+        <label for="quartier">Ton quartier</label>
+        <select id="quartier" name="quartier">
+          <option value="">Tout Dakar</option>
+        </select>
+      </div>
+      <button class="bouton" type="submit">Chercher</button>
+    </form>
+
+    <section id="resultats" aria-live="polite"></section>
+
+    <section id="accueil" class="avantages">
+      <div class="carte"><strong>⏱️ Gagne du temps</strong><p>Vois tout de suite quelle pharmacie a ton médicament, au lieu d'en visiter cinq.</p></div>
+      <div class="carte"><strong>📍 Au plus près</strong><p>Les pharmacies sont triées par distance depuis ton quartier.</p></div>
+      <div class="carte"><strong>🛡️ Pas de contrefaçon</strong><p>Uniquement des pharmacies agréées, pas de médicaments du marché.</p></div>
+      <div class="carte"><strong>💬 Aussi sur WhatsApp</strong><p>Envoie juste le nom du médicament, sans rien installer.</p></div>
+    </section>
+  </main>
+
+  <dialog id="modale-resa">
+    <form id="form-resa" class="modale" method="dialog">
+      <h2>Réserver</h2>
+      <p id="resa-resume" style="margin:0"></p>
+      <div>
+        <label for="resa-nom">Ton prénom</label>
+        <input id="resa-nom" required maxlength="60" autocomplete="given-name">
+      </div>
+      <div>
+        <label for="resa-tel">Ton téléphone</label>
+        <input id="resa-tel" required inputmode="tel" placeholder="77 123 45 67" autocomplete="tel">
+      </div>
+      <div>
+        <label for="resa-qte">Quantité</label>
+        <select id="resa-qte"><option>1</option><option>2</option><option>3</option></select>
+      </div>
+      <p class="erreur" id="resa-erreur"></p>
+      <div class="actions">
+        <button class="bouton secondaire" type="button" data-fermer>Annuler</button>
+        <button class="bouton" type="submit">Confirmer</button>
+      </div>
+    </form>
+    <div id="resa-ok" class="modale cache">
+      <h2>C'est réservé 🎉</h2>
+      <p style="margin:0">Montre ce code au comptoir :</p>
+      <div class="code-resa" id="resa-code"></div>
+      <p id="resa-ok-detail" style="margin:0;color:var(--texte-doux)"></p>
+      <div class="actions"><button class="bouton" type="button" data-fermer>Fermer</button></div>
+    </div>
+  </dialog>
+
+  <footer class="pied">Dawa · Dakar · Les médicaments sur ordonnance doivent être présentés avec l'ordonnance.</footer>
+
+  <script type="module">
+    import { api, fcfa, echapper, lienWhatsapp } from '/commun.js';
+
+    const champ = document.getElementById('q');
+    const liste = document.getElementById('suggestions');
+    const selQuartier = document.getElementById('quartier');
+    const zone = document.getElementById('resultats');
+    const modale = document.getElementById('modale-resa');
+    let resaEnCours = null;
+
+    for (const q of await api('/api/quartiers')) selQuartier.add(new Option(q, q));
+    try { selQuartier.value = localStorage.getItem('dawa.quartier') || ''; } catch {}
+
+    // Suggestions pendant la saisie
+    let minuteur, actif = -1;
+    champ.addEventListener('input', () => {
+      clearTimeout(minuteur);
+      minuteur = setTimeout(async () => {
+        const q = champ.value.trim();
+        if (q.length < 2) return fermerSuggestions();
+        const meds = await api(`/api/suggestions?q=${encodeURIComponent(q)}`);
+        if (!meds.length) return fermerSuggestions();
+        actif = -1;
+        liste.innerHTML = meds.map((m) =>
+          `<li role="option" data-nom="${echapper(m.nom)}">${echapper(m.nom)} <small>${echapper(m.dci)}</small></li>`).join('');
+        liste.classList.remove('cache');
+        champ.setAttribute('aria-expanded', 'true');
+      }, 150);
+    });
+    champ.addEventListener('keydown', (e) => {
+      const items = [...liste.children];
+      if (liste.classList.contains('cache') || !items.length) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        actif = (actif + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        items.forEach((li, i) => li.setAttribute('aria-selected', i === actif));
+      } else if (e.key === 'Enter' && actif >= 0) {
+        e.preventDefault();
+        choisir(items[actif].dataset.nom);
+      } else if (e.key === 'Escape') fermerSuggestions();
+    });
+    liste.addEventListener('mousedown', (e) => {
+      const li = e.target.closest('li');
+      if (li) { e.preventDefault(); choisir(li.dataset.nom); }
+    });
+    champ.addEventListener('blur', () => setTimeout(fermerSuggestions, 100));
+    function fermerSuggestions() { liste.classList.add('cache'); champ.setAttribute('aria-expanded', 'false'); }
+    function choisir(nom) { champ.value = nom; fermerSuggestions(); lancer(); }
+
+    document.getElementById('form-recherche').addEventListener('submit', (e) => { e.preventDefault(); fermerSuggestions(); lancer(); });
+    selQuartier.addEventListener('change', () => {
+      try { localStorage.setItem('dawa.quartier', selQuartier.value); } catch {}
+      if (champ.value.trim().length >= 2) lancer();
+    });
+
+    async function lancer() {
+      const q = champ.value.trim();
+      if (q.length < 2) return;
+      document.getElementById('accueil').classList.add('cache');
+      zone.innerHTML = '<p class="vide">Recherche…</p>';
+      const params = new URLSearchParams({ q, quartier: selQuartier.value });
+      history.replaceState(null, "", `/pharmacies?${params}`);
+      const resultats = await api(`/api/recherche?${params}`);
+      afficher(resultats, q);
+    }
+
+    function afficher(resultats, q) {
+      if (!resultats.length) {
+        zone.innerHTML = `<div class="carte vide" style="margin-top:20px">Aucun médicament ne correspond à « ${echapper(q)} ».<br>Vérifie l'orthographe ou essaie le nom de la molécule (ex. paracétamol).</div>`;
+        return;
+      }
+      zone.innerHTML = resultats.map((m) => `
+        <article class="resultat-med">
+          <header>
+            <h2>${echapper(m.nom)}</h2>
+            <span class="forme">${echapper(m.forme)} · ${echapper(m.dci)}</span>
+            ${m.ordonnance ? '<span class="pastille orange">Sur ordonnance</span>' : ''}
+          </header>
+          ${m.pharmacies.length ? `<div class="liste-pharmas">${m.pharmacies.slice(0, 5).map((p) => `
+            <div class="carte pharma">
+              <div>
+                <div class="pharma-nom">${echapper(p.nom)}</div>
+                <div class="pharma-meta">
+                  <span>${echapper(p.quartier)}</span>
+                  ${p.distance_km != null ? `<span>· ${p.distance_km} km</span>` : ''}
+                  ${p.de_garde ? '<span class="pastille bleue">🌙 De garde</span>' : ''}
+                  <span class="pastille ${p.quantite <= 5 ? 'orange' : 'verte'}">${p.quantite <= 5 ? 'Dernières boîtes' : 'En stock'}</span>
+                </div>
+              </div>
+              <div class="pharma-prix">${fcfa(p.prix)}</div>
+              <div class="pharma-actions">
+                <button class="bouton petit" data-resa='${echapper(JSON.stringify({ p: p.id, m: m.id, pn: p.nom, mn: m.nom, prix: p.prix, adr: p.adresse }))}'>Réserver</button>
+                <a class="bouton petit secondaire" href="tel:${echapper(p.telephone.replace(/\s/g, ''))}">📞 Appeler</a>
+                <a class="bouton petit secondaire" target="_blank" rel="noopener" href="${echapper(lienWhatsapp(p.telephone, `Bonjour, avez-vous ${m.nom} ?`))}">💬 WhatsApp</a>
+              </div>
+            </div>`).join('')}</div>`
+          : '<div class="carte vide">😔 En rupture dans toutes les pharmacies partenaires pour le moment.</div>'}
+        </article>`).join('');
+    }
+
+    zone.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-resa]');
+      if (!b) return;
+      resaEnCours = JSON.parse(b.dataset.resa);
+      document.getElementById('resa-resume').textContent = `${resaEnCours.mn} chez ${resaEnCours.pn} · ${fcfa(resaEnCours.prix)} l'unité`;
+      document.getElementById('resa-erreur').textContent = '';
+      document.getElementById('form-resa').classList.remove('cache');
+      document.getElementById('resa-ok').classList.add('cache');
+      modale.showModal();
+    });
+    modale.addEventListener('click', (e) => { if (e.target.closest('[data-fermer]') || e.target === modale) modale.close(); });
+
+    document.getElementById('form-resa').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const erreur = document.getElementById('resa-erreur');
+      erreur.textContent = '';
+      try {
+        const { code } = await api('/api/reservations', { methode: 'POST', corps: {
+          pharmacie_id: resaEnCours.p,
+          medicament_id: resaEnCours.m,
+          quantite: document.getElementById('resa-qte').value,
+          client_nom: document.getElementById('resa-nom').value,
+          client_tel: document.getElementById('resa-tel').value,
+        } });
+        document.getElementById('resa-code').textContent = code;
+        document.getElementById('resa-ok-detail').textContent = `${resaEnCours.pn}, ${resaEnCours.adr}`;
+        document.getElementById('form-resa').classList.add('cache');
+        document.getElementById('resa-ok').classList.remove('cache');
+      } catch (err) {
+        erreur.textContent = err.message;
+      }
+    });
+
+    // Recherche passée dans l'URL (lien partagé)
+    const depart = new URLSearchParams(location.search);
+    if (depart.get('q')) {
+      champ.value = depart.get('q');
+      if (depart.get('quartier')) selQuartier.value = depart.get('quartier');
+      lancer();
+    }
+  </script>
+</body>
+</html>

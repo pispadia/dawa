@@ -1,0 +1,6 @@
+# Base locale (recréée au démarrage avec les données de démo)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+node_modules/
+.env

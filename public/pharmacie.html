@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dawa : espace pharmacie</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="bandeau-demo">Démo : connecte-toi avec <b>pharma1</b> à <b>pharma15</b>, mot de passe <b>demo1234</b>.</div>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="logo" href="/"><span class="logo-pastille">✚</span> Dawa <span class="pastille">Pro</span></a>
+      <nav class="nav">
+        <a href="/">Urgences</a>
+        <a href="/pharmacies">Pharmacies</a>
+        <a href="/whatsapp">WhatsApp</a>
+        <a href="/pharmacie" aria-current="page">Espace pharmacie</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="conteneur" style="padding-block: 24px;">
+    <!-- Connexion -->
+    <section id="ecran-connexion" class="cache">
+      <form id="form-connexion" class="carte formulaire" style="max-width:380px;margin:24px auto">
+        <h1 style="font-size:1.4rem">Espace pharmacie</h1>
+        <p class="sous-titre" style="margin:0">Gère ton stock, ta caisse et tes réservations.</p>
+        <div>
+          <label for="identifiant">Identifiant</label>
+          <input id="identifiant" required autocomplete="username">
+        </div>
+        <div>
+          <label for="mdp">Mot de passe</label>
+          <input id="mdp" type="password" required autocomplete="current-password">
+        </div>
+        <p class="erreur" id="erreur-connexion"></p>
+        <button class="bouton" type="submit">Se connecter</button>
+      </form>
+    </section>
+
+    <!-- Application -->
+    <section id="ecran-app" class="cache">
+      <div class="barre-outils">
+        <div>
+          <h1 id="nom-pharma" style="font-size:1.5rem;margin:0"></h1>
+          <span id="adresse-pharma" class="dci"></span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <label class="interrupteur"><input type="checkbox" id="garde"> 🌙 De garde ce soir</label>
+          <button class="bouton petit secondaire" id="deconnexion">Se déconnecter</button>
+        </div>
+      </div>
+
+      <div class="onglets" role="tablist">
+        <button role="tab" data-onglet="tableau" aria-selected="true">Tableau de bord</button>
+        <button role="tab" data-onglet="caisse" aria-selected="false">Caisse</button>
+        <button role="tab" data-onglet="reservations" aria-selected="false">Réservations <span id="badge-resa" class="pastille verte cache"></span></button>
+        <button role="tab" data-onglet="stock" aria-selected="false">Stock</button>
+      </div>
+
+      <!-- Tableau de bord -->
+      <div data-panneau="tableau">
+        <div class="indicateurs">
+          <div class="carte indicateur"><div class="valeur" id="ind-ca">0</div><div class="libelle">Ventes du jour</div></div>
+          <div class="carte indicateur"><div class="valeur" id="ind-nb">0</div><div class="libelle">Transactions aujourd'hui</div></div>
+          <div class="carte indicateur"><div class="valeur" id="ind-resa">0</div><div class="libelle">Réservations à préparer</div></div>
+          <div class="carte indicateur"><div class="valeur" id="ind-rupture">0</div><div class="libelle">Produits à commander</div></div>
+        </div>
+        <div class="colonnes">
+          <div class="carte">
+            <h2>⚠️ Ruptures et stock bas</h2>
+            <ul class="liste-simple" id="liste-ruptures"></ul>
+          </div>
+          <div class="carte">
+            <h2>⏳ Péremption sous 60 jours</h2>
+            <ul class="liste-simple" id="liste-peremptions"></ul>
+          </div>
+        </div>
+        <div class="carte">
+          <h2>🔎 Cherché par les patients, mais introuvable</h2>
+          <p class="dci" style="margin-top:-6px">Recherches sans résultat dans ta zone (30 derniers jours). Ce sont des ventes que tu peux capter.</p>
+          <ul class="liste-simple" id="liste-demandes"></ul>
+        </div>
+      </div>
+
+      <!-- Caisse -->
+      <div data-panneau="caisse" class="cache">
+        <form id="form-vente" class="carte formulaire" style="max-width:520px">
+          <h2>Enregistrer une vente</h2>
+          <div>
+            <label for="vente-produit">Produit</label>
+            <select id="vente-produit" required></select>
+          </div>
+          <div class="ligne">
+            <div>
+              <label for="vente-qte">Quantité</label>
+              <input id="vente-qte" type="number" min="1" value="1" required>
+            </div>
+            <div>
+              <label>Total</label>
+              <div id="vente-total" style="font-size:1.4rem;font-weight:800;padding-top:4px">0 FCFA</div>
+            </div>
+          </div>
+          <p class="erreur" id="erreur-vente"></p>
+          <button class="bouton" type="submit">Encaisser</button>
+        </form>
+      </div>
+
+      <!-- Réservations -->
+      <div data-panneau="reservations" class="cache">
+        <div class="carte tableau-defilant">
+          <table>
+            <thead><tr><th>Code</th><th>Client</th><th>Produit</th><th class="nombre">Qté</th><th>Canal</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="corps-resa"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Stock -->
+      <div data-panneau="stock" class="cache">
+        <div class="barre-outils">
+          <input id="filtre-stock" type="search" placeholder="Filtrer…">
+          <button class="bouton petit" id="ajouter-produit">+ Ajouter un produit</button>
+        </div>
+        <div class="carte tableau-defilant">
+          <table>
+            <thead><tr><th>Produit</th><th class="nombre">Stock</th><th class="nombre">Prix</th><th>Péremption</th><th></th></tr></thead>
+            <tbody id="corps-stock"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="modale-stock">
+    <form id="form-stock" class="modale">
+      <h2 id="titre-stock">Produit</h2>
+      <div>
+        <label for="stock-produit">Produit</label>
+        <select id="stock-produit" required></select>
+      </div>
+      <div class="formulaire">
+        <div class="ligne">
+          <div><label for="stock-qte">Quantité</label><input id="stock-qte" type="number" min="0" required></div>
+          <div><label for="stock-prix">Prix (FCFA)</label><input id="stock-prix" type="number" min="1" required></div>
+        </div>
+        <div class="ligne">
+          <div><label for="stock-seuil">Alerte sous</label><input id="stock-seuil" type="number" min="0" value="5" required></div>
+          <div><label for="stock-peremption">Péremption</label><input id="stock-peremption" type="date"></div>
+        </div>
+      </div>
+      <p class="erreur" id="erreur-stock"></p>
+      <div class="actions">
+        <button class="bouton secondaire" type="button" data-fermer>Annuler</button>
+        <button class="bouton" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { api, fcfa, echapper, toast } from '/commun.js';
+
+    let jeton = null;
+    try { jeton = sessionStorage.getItem('dawa.jeton'); } catch {}
+    let stock = [];
+    const $ = (id) => document.getElementById(id);
+    const appel = (chemin, options = {}) => api(chemin, { ...options, jeton }).catch((e) => {
+      if (e.statut === 401) deconnecter();
+      throw e;
+    });
+
+    function deconnecter() {
+      jeton = null;
+      try { sessionStorage.removeItem('dawa.jeton'); } catch {}
+      $('ecran-app').classList.add('cache');
+      $('ecran-connexion').classList.remove('cache');
+    }
+
+    $('form-connexion').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('erreur-connexion').textContent = '';
+      try {
+        const r = await api('/api/connexion', { methode: 'POST', corps: { identifiant: $('identifiant').value, mot_de_passe: $('mdp').value } });
+        jeton = r.jeton;
+        try { sessionStorage.setItem('dawa.jeton', jeton); } catch {}
+        demarrer();
+      } catch (err) {
+        $('erreur-connexion').textContent = err.message;
+      }
+    });
+
+    $('deconnexion').addEventListener('click', async () => {
+      await appel('/api/deconnexion', { methode: 'POST' }).catch(() => {});
+      deconnecter();
+    });
+
+    $('garde').addEventListener('change', async (e) => {
+      await appel('/api/garde', { methode: 'POST', corps: { de_garde: e.target.checked } });
+      toast(e.target.checked ? 'Tu apparais comme pharmacie de garde.' : 'Garde désactivée.');
+    });
+
+    // Onglets
+    document.querySelector('.onglets').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-onglet]');
+      if (!b) return;
+      document.querySelectorAll('[data-onglet]').forEach((x) => x.setAttribute('aria-selected', x === b));
+      document.querySelectorAll('[data-panneau]').forEach((p) => p.classList.toggle('cache', p.dataset.panneau !== b.dataset.onglet));
+      rafraichir();
+    });
+
+    async function demarrer() {
+      try {
+        const moi = await appel('/api/moi');
+        $('nom-pharma').textContent = moi.nom;
+        $('adresse-pharma').textContent = `${moi.adresse} · ${moi.telephone}`;
+        $('garde').checked = !!moi.de_garde;
+        $('ecran-connexion').classList.add('cache');
+        $('ecran-app').classList.remove('cache');
+        await rafraichir();
+      } catch {
+        deconnecter();
+      }
+    }
+
+    async function rafraichir() {
+      const [tableau, s, resas] = await Promise.all([appel('/api/tableau'), appel('/api/stock'), appel('/api/reservations')]);
+      stock = s;
+      afficherTableau(tableau);
+      afficherStock();
+      afficherCaisse();
+      afficherReservations(resas);
+    }
+
+    const vide = (texte) => `<li class="dci">${texte}</li>`;
+
+    function afficherTableau(t) {
+      $('ind-ca').textContent = fcfa(t.ventes_jour.ca);
+      $('ind-nb').textContent = t.ventes_jour.nb;
+      $('ind-resa').textContent = t.reservations_en_attente;
+      $('ind-rupture').textContent = t.ruptures.length;
+      $('badge-resa').textContent = t.reservations_en_attente;
+      $('badge-resa').classList.toggle('cache', !t.reservations_en_attente);
+      $('liste-ruptures').innerHTML = t.ruptures.map((r) => `<li><span>${echapper(r.nom)}</span>
+        <span class="pastille ${r.quantite === 0 ? 'rouge' : 'orange'}">${r.quantite === 0 ? 'Rupture' : `${r.quantite} restant${r.quantite > 1 ? 's' : ''}`}</span></li>`).join('') || vide('Rien à signaler 👍');
+      $('liste-peremptions').innerHTML = t.peremptions.map((p) => `<li><span>${echapper(p.nom)} <span class="dci">(${p.quantite})</span></span>
+        <span class="pastille orange">${new Date(p.peremption).toLocaleDateString('fr-FR')}</span></li>`).join('') || vide('Aucun produit proche de la péremption.');
+      $('liste-demandes').innerHTML = t.demandes_non_servies.map((d) => `<li><span>${echapper(d.terme)}</span>
+        <span class="pastille">${d.n} recherche${d.n > 1 ? 's' : ''}</span></li>`).join('') || vide('Pas encore de données.');
+    }
+
+    // Stock
+    $('filtre-stock').addEventListener('input', afficherStock);
+    function afficherStock() {
+      const f = $('filtre-stock').value.toLowerCase();
+      $('corps-stock').innerHTML = stock
+        .filter((s) => `${s.nom} ${s.dci}`.toLowerCase().includes(f))
+        .map((s) => {
+          const etat = s.quantite === 0 ? 'rouge' : s.quantite <= s.seuil ? 'orange' : 'verte';
+          return `<tr>
+            <td>${echapper(s.nom)}<div class="dci">${echapper(s.dci)} · ${echapper(s.forme)}</div></td>
+            <td class="nombre"><span class="pastille ${etat}">${s.quantite}</span></td>
+            <td class="nombre">${fcfa(s.prix)}</td>
+            <td>${s.peremption ? new Date(s.peremption).toLocaleDateString('fr-FR') : '—'}</td>
+            <td><button class="bouton petit secondaire" data-modifier="${s.medicament_id}">Modifier</button></td>
+          </tr>`;
+        }).join('');
+    }
+
+    let catalogue = null;
+    async function ouvrirStock(medicamentId) {
+      catalogue ??= await appel('/api/catalogue');
+      const s = stock.find((x) => x.medicament_id === medicamentId);
+      const sel = $('stock-produit');
+      const options = s ? catalogue.filter((m) => m.id === medicamentId)
+        : catalogue.filter((m) => !stock.some((x) => x.medicament_id === m.id));
+      if (!options.length) return toast('Tous les produits du catalogue sont déjà dans ton stock.');
+      sel.innerHTML = options.map((m) => `<option value="${m.id}">${echapper(m.nom)} (${echapper(m.forme)})</option>`).join('');
+      sel.disabled = !!s;
+      $('titre-stock').textContent = s ? 'Modifier le produit' : 'Ajouter un produit';
+      $('stock-qte').value = s?.quantite ?? '';
+      $('stock-prix').value = s?.prix ?? '';
+      $('stock-seuil').value = s?.seuil ?? 5;
+      $('stock-peremption').value = s?.peremption ?? '';
+      $('erreur-stock').textContent = '';
+      $('modale-stock').showModal();
+    }
+    $('ajouter-produit').addEventListener('click', () => ouvrirStock(null));
+    $('corps-stock').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-modifier]');
+      if (b) ouvrirStock(Number(b.dataset.modifier));
+    });
+    $('modale-stock').addEventListener('click', (e) => { if (e.target.closest('[data-fermer]') || e.target === e.currentTarget) e.currentTarget.close(); });
+    $('form-stock').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await appel('/api/stock', { methode: 'POST', corps: {
+          medicament_id: $('stock-produit').value,
+          quantite: $('stock-qte').value,
+          prix: $('stock-prix').value,
+          seuil: $('stock-seuil').value,
+          peremption: $('stock-peremption').value,
+        } });
+        $('modale-stock').close();
+        toast('Stock mis à jour. Les patients le voient déjà.');
+        rafraichir();
+      } catch (err) {
+        $('erreur-stock').textContent = err.message;
+      }
+    });
+
+    // Caisse
+    function afficherCaisse() {
+      const sel = $('vente-produit');
+      const avant = sel.value;
+      sel.innerHTML = stock.filter((s) => s.quantite > 0)
+        .map((s) => `<option value="${s.medicament_id}">${echapper(s.nom)} · ${fcfa(s.prix)} (${s.quantite} en stock)</option>`).join('');
+      if ([...sel.options].some((o) => o.value === avant)) sel.value = avant;
+      majTotal();
+    }
+    function majTotal() {
+      const s = stock.find((x) => x.medicament_id === Number($('vente-produit').value));
+      $('vente-total').textContent = fcfa(s ? s.prix * (Number($('vente-qte').value) || 0) : 0);
+    }
+    $('vente-produit').addEventListener('change', majTotal);
+    $('vente-qte').addEventListener('input', majTotal);
+    $('form-vente').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('erreur-vente').textContent = '';
+      try {
+        const r = await appel('/api/ventes', { methode: 'POST', corps: { medicament_id: $('vente-produit').value, quantite: $('vente-qte').value } });
+        toast(`Vente de ${fcfa(r.total)} enregistrée. Reste ${r.restant} en stock.`);
+        $('vente-qte').value = 1;
+        rafraichir();
+      } catch (err) {
+        $('erreur-vente').textContent = err.message;
+      }
+    });
+
+    // Réservations
+    const STATUTS = { en_attente: ['À préparer', 'orange'], retiree: ['Retirée', 'verte'], annulee: ['Annulée', ''] };
+    function afficherReservations(resas) {
+      $('corps-resa').innerHTML = resas.map((r) => {
+        const [libelle, couleur] = STATUTS[r.statut];
+        return `<tr>
+          <td><b>${echapper(r.code)}</b></td>
+          <td>${echapper(r.client_nom)}<div class="dci">${echapper(r.client_tel)}</div></td>
+          <td>${echapper(r.medicament)}</td>
+          <td class="nombre">${r.quantite}</td>
+          <td>${r.canal === 'whatsapp' ? '💬 WhatsApp' : '🌐 Web'}</td>
+          <td><span class="pastille ${couleur}">${libelle}</span></td>
+          <td style="white-space:nowrap">${r.statut === 'en_attente' ? `
+            <button class="bouton petit" data-statut="retiree" data-id="${r.id}">Retirée</button>
+            <button class="bouton petit danger" data-statut="annulee" data-id="${r.id}">Annuler</button>` : ''}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="7" class="vide">Aucune réservation pour le moment.</td></tr>';
+    }
+    $('corps-resa').addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-statut]');
+      if (!b) return;
+      try {
+        await appel('/api/reservations/statut', { methode: 'POST', corps: { reservation_id: b.dataset.id, statut: b.dataset.statut } });
+        toast(b.dataset.statut === 'retiree' ? 'Vente enregistrée, stock mis à jour.' : 'Réservation annulée.');
+        rafraichir();
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+
+    if (jeton) demarrer(); else deconnecter();
+    // Nouvelles réservations : on rafraîchit toutes les 30 s.
+    setInterval(() => { if (jeton && !document.hidden) rafraichir().catch(() => {}); }, 30000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dawa : simulateur WhatsApp</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="bandeau-demo">Simulateur : c'est exactement ce que le patient recevra sur WhatsApp une fois le numéro branché.</div>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="logo" href="/"><span class="logo-pastille">✚</span> Dawa</a>
+      <nav class="nav">
+        <a href="/">Urgences</a>
+        <a href="/pharmacies">Pharmacies</a>
+        <a href="/whatsapp" aria-current="page">WhatsApp</a>
+        <a href="/pharmacie">Espace pharmacie</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="conteneur" style="padding-block: 24px;">
+    <div class="telephone">
+      <div class="telephone-entete">
+        <span class="logo-pastille" style="background:#fff;color:#075e54">✚</span>
+        <div><b>Dawa</b><small>Compte professionnel</small></div>
+      </div>
+      <div class="fil" id="fil" aria-live="polite"></div>
+      <form class="saisie" id="form-message" autocomplete="off">
+        <input id="message" placeholder="Écris un message" aria-label="Message">
+        <button class="bouton" type="submit" aria-label="Envoyer">➤</button>
+      </form>
+    </div>
+    <div class="raccourcis">
+      <button class="bouton petit secondaire" data-msg="urgence">urgence</button>
+      <button class="bouton petit secondaire" data-position>📍 envoyer ma position</button>
+      <button class="bouton petit secondaire" data-msg="hôpital kolda">hôpital kolda</button>
+      <button class="bouton petit secondaire" data-msg="serpent">serpent</button>
+      <button class="bouton petit secondaire" data-msg="doliprane parcelles">doliprane parcelles</button>
+      <button class="bouton petit secondaire" data-msg="aide">aide</button>
+    </div>
+  </main>
+
+  <script type="module">
+    import { api, echapper } from '/commun.js';
+
+    const fil = document.getElementById('fil');
+    const champ = document.getElementById('message');
+    // Un numéro fictif par onglet, pour que la conversation garde son contexte.
+    const numero = `+22177${Math.floor(1000000 + Math.random() * 8999999)}`;
+
+    // Mise en forme WhatsApp : *gras* et _italique_.
+    const formater = (t) => echapper(t).replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/_([^_\n]+)_/g, '<i>$1</i>');
+
+    function bulle(texte, qui) {
+      const div = document.createElement('div');
+      div.className = `bulle ${qui}`;
+      div.innerHTML = formater(texte);
+      fil.append(div);
+      fil.scrollTop = fil.scrollHeight;
+    }
+
+    async function envoyer(message, position) {
+      if (!message.trim() && !position) return;
+      bulle(position ? '📍 Position partagée' : message, 'moi');
+      champ.value = '';
+      try {
+        const { reponse } = await api('/api/whatsapp', { methode: 'POST', corps: { de: numero, message, position } });
+        bulle(reponse, 'bot');
+      } catch (e) {
+        bulle(`⚠️ ${e.message}`, 'bot');
+      }
+    }
+
+    document.getElementById('form-message').addEventListener('submit', (e) => { e.preventDefault(); envoyer(champ.value); });
+    document.querySelector('.raccourcis').addEventListener('click', (e) => {
+      if (e.target.closest('[data-position]')) {
+        // Comme le partage de position WhatsApp ; position de Tambacounda si le GPS est refusé.
+        navigator.geolocation?.getCurrentPosition(
+          (p) => envoyer('', { la: p.coords.latitude, lo: p.coords.longitude }),
+          () => envoyer('', { la: 13.7707, lo: -13.6673 }),
+          { timeout: 8000 },
+        ) ?? envoyer('', { la: 13.7707, lo: -13.6673 });
+        return;
+      }
+      const b = e.target.closest('[data-msg]');
+      if (b) envoyer(b.dataset.msg);
+    });
+
+    const { reponse } = await api('/api/whatsapp', { methode: 'POST', corps: { de: numero, message: 'aide' } });
+    bulle(reponse, 'bot');
+    champ.focus();
+  </script>
+</body>
+</html>

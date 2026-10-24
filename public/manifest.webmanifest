@@ -1,0 +1,19 @@
+{
+  "name": "Dawa : urgences médicales",
+  "short_name": "Dawa",
+  "description": "SOS, structures de santé proches, premiers secours et fiche médicale. Marche sans internet.",
+  "lang": "fr",
+  "start_url": "/#sos",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f8f7",
+  "theme_color": "#0f7b5a",
+  "icons": [
+    { "src": "/icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "SOS", "url": "/#sos" },
+    { "name": "Santé proche", "url": "/#proche" }
+  ]
+}

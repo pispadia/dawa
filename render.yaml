@@ -1,0 +1,17 @@
+# Déploiement sur Render (https://render.com) : Dashboard > New > Blueprint, puis choisir ce dépôt.
+services:
+  - type: web
+    name: dawa
+    runtime: node
+    plan: free
+    region: frankfurt # le plus proche de Dakar parmi les régions Render
+    buildCommand: echo "Aucune dépendance à installer"
+    startCommand: node server.js
+    healthCheckPath: /api/quartiers
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: ADMIN_TOKEN
+        generateValue: true # visible dans Render > dawa > Environment

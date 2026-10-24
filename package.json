@@ -1,0 +1,14 @@
+{
+  "name": "dawa",
+  "version": "0.1.0",
+  "description": "Dawa : application gratuite d'urgences médicales au Sénégal",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "reset": "node db.js --reset"
+  }
+}

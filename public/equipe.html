@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dawa : espace équipe</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .progression { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; display: flex; margin: 8px 0 4px; }
+    .progression span { display: block; height: 100%; }
+    .legende { display: flex; gap: 14px; flex-wrap: wrap; font-size: .82rem; color: var(--texte-doux); }
+    .legende i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+    .ligne-structure { display: grid; gap: 8px; padding: 12px 14px; }
+    .ligne-structure .tete { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+    .saisie-num { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }
+    @media (max-width: 520px) { .saisie-num { grid-template-columns: 1fr 1fr; } .saisie-num input { grid-column: 1 / -1; } }
+    .saisie-num input, .saisie-num select { padding: 7px 10px; }
+    .filtres-equipe { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .zones td, .zones th { padding: 6px 8px; }
+    .zones tr { cursor: pointer; }
+    .zones tr:hover td { background: var(--surface-2); }
+    .etapes-excel { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+  </style>
+</head>
+<body>
+  <header class="entete">
+    <div class="conteneur">
+      <a class="logo" href="/"><span class="logo-pastille">✚</span> Dawa <span class="pastille">Équipe</span></a>
+      <button class="bouton petit secondaire cache" id="deconnexion">Se déconnecter</button>
+    </div>
+  </header>
+
+  <main class="conteneur" style="padding-block: 24px;">
+    <section id="ecran-connexion" class="cache">
+      <form id="form-connexion" class="carte formulaire" style="max-width:380px;margin:24px auto">
+        <h1 style="font-size:1.4rem">Espace équipe</h1>
+        <p class="sous-titre" style="margin:0">Collecte et vérification des numéros des structures de santé.</p>
+        <div>
+          <label for="jeton">Jeton équipe</label>
+          <input id="jeton" type="password" required autocomplete="current-password">
+          <p class="dci" style="margin:4px 0 0">Affiché dans la console du serveur au démarrage, ou défini par <code>ADMIN_TOKEN</code>.</p>
+        </div>
+        <p class="erreur" id="erreur-connexion"></p>
+        <button class="bouton" type="submit">Entrer</button>
+      </form>
+    </section>
+
+    <section id="ecran-app" class="cache">
+      <h1 style="font-size:1.5rem">Numéros des structures de santé</h1>
+      <div class="carte" style="margin-bottom:16px">
+        <div id="resume"></div>
+        <div class="progression" id="barre"></div>
+        <div class="legende">
+          <span><i style="background:var(--vert)"></i>Vérifié par l'équipe</span>
+          <span><i style="background:var(--orange)"></i>Numéro OSM, pas encore vérifié</span>
+          <span><i style="background:var(--surface-2);border:1px solid var(--bordure)"></i>Sans numéro</span>
+        </div>
+      </div>
+
+      <div class="onglets" role="tablist">
+        <button role="tab" data-onglet="structures" aria-selected="true">Structures</button>
+        <button role="tab" data-onglet="zones" aria-selected="false">Par zone</button>
+        <button role="tab" data-onglet="propositions" aria-selected="false">Propositions <span id="nb-prop" class="pastille verte cache"></span></button>
+        <button role="tab" data-onglet="signalements" aria-selected="false">Signalements <span id="nb-sig" class="pastille orange cache"></span></button>
+        <button role="tab" data-onglet="excel" aria-selected="false">Campagne d'appels</button>
+      </div>
+
+      <div data-panneau="structures">
+        <details class="carte" id="bloc-ajout" style="margin-bottom:12px">
+          <summary style="cursor:pointer;font-weight:600">+ Ajouter une structure absente de la liste</summary>
+          <form id="form-ajout" class="formulaire" style="margin-top:12px">
+            <div><label for="a-nom">Nom</label><input id="a-nom" name="nom" required minlength="3" placeholder="Poste de santé de …"></div>
+            <div class="ligne">
+              <div><label for="a-type">Type</label>
+                <select id="a-type" name="type">
+                  <option value="poste">Poste de santé</option><option value="case">Case de santé</option><option value="centre">Centre de santé</option>
+                  <option value="maternite">Maternité</option><option value="hopital">Hôpital</option><option value="clinique">Clinique</option>
+                </select></div>
+              <div><label for="a-source">Source</label>
+                <select id="a-source" name="source"><option value="district">District</option><option value="appel">Appel</option><option value="ministere">Ministère</option></select></div>
+            </div>
+            <div><label for="a-position">Position</label>
+              <input id="a-position" name="position" required placeholder="Lien Google Maps ou « 12.8939, -14.9406 »">
+              <p class="dci" style="margin:4px 0 0">Dans Google Maps : appui long sur l'endroit → les coordonnées s'affichent, copie-les.</p></div>
+            <div><label for="a-tel">Numéro vérifié (facultatif)</label><input id="a-tel" name="tel" inputmode="tel" placeholder="77 123 45 67"></div>
+            <p class="erreur" id="erreur-ajout"></p>
+            <button class="bouton" type="submit" style="justify-self:start">Ajouter et publier</button>
+          </form>
+        </details>
+        <div class="filtres-equipe">
+          <div><label for="f-zone">Zone</label><select id="f-zone"><option value="">Tout le Sénégal</option></select></div>
+          <div><label for="f-type">Type</label>
+            <select id="f-type">
+              <option value="">Tous</option><option value="poste">Postes et cases</option><option value="centre">Centres de santé</option>
+              <option value="hopital">Hôpitaux</option><option value="maternite">Maternités</option><option value="clinique">Cliniques</option>
+            </select></div>
+          <div><label for="f-etat">Numéro</label>
+            <select id="f-etat">
+              <option value="a_verifier">À vérifier ou à trouver</option><option value="sans">Sans numéro</option>
+              <option value="osm">OSM non vérifié</option><option value="verifie">Vérifié</option><option value="">Tous</option>
+            </select></div>
+          <div><label for="f-q">Nom</label><input id="f-q" type="search" placeholder="Rechercher…"></div>
+        </div>
+        <p class="dci" id="compte-liste"></p>
+        <div id="liste" class="liste-pharmas"></div>
+      </div>
+
+      <div data-panneau="zones" class="cache">
+        <div class="carte tableau-defilant">
+          <table class="zones">
+            <thead><tr><th>Zone</th><th class="nombre">Structures</th><th class="nombre">Vérifiés</th><th class="nombre">OSM</th><th class="nombre">Sans numéro</th><th class="nombre">Couverture</th></tr></thead>
+            <tbody id="corps-zones"></tbody>
+          </table>
+        </div>
+        <p class="dci">Clique sur une zone pour voir ses structures. Zone = ville de référence la plus proche.</p>
+      </div>
+
+      <div data-panneau="propositions" class="cache">
+        <p class="dci">Numéros envoyés par les utilisateurs. Appelle avant de valider : un numéro faux en pleine urgence fait perdre un temps précieux.</p>
+        <div id="liste-prop" class="liste-pharmas"></div>
+      </div>
+
+      <div data-panneau="signalements" class="cache">
+        <div id="liste-sig" class="liste-pharmas"></div>
+      </div>
+
+      <div data-panneau="excel" class="cache">
+        <div class="carte formulaire" style="max-width:640px">
+          <h2 style="margin:0">Campagne d'appels avec des bénévoles</h2>
+          <ol class="etapes-excel">
+            <li>Choisis une zone et télécharge la liste (fichier Excel / CSV).</li>
+            <li>Les bénévoles appellent chaque structure. Pour trouver un numéro inconnu : district sanitaire, infirmier chef de poste, mairie, radio communautaire.</li>
+            <li>Ils remplissent <b>numero_verifie</b> (et <b>source</b> : appel, district, ministere), seulement si quelqu'un de la structure a répondu.</li>
+            <li>Réimporte le fichier ici : les numéros apparaissent tout de suite dans l'app.</li>
+            <li>Une structure manque ? Ajoute une ligne en laissant <b>id</b> vide, avec <b>nom</b>, <b>type</b> (poste, case, centre, maternite, hopital, clinique) et sa position dans <b>carte</b> (lien Google Maps ou « 12.89, -14.94 »).</li>
+          </ol>
+          <div class="ligne">
+            <div><label for="x-zone">Zone</label><select id="x-zone"><option value="">Tout le Sénégal</option></select></div>
+            <div><label for="x-etat">Structures</label>
+              <select id="x-etat"><option value="a_verifier">À vérifier ou à trouver</option><option value="sans">Sans numéro</option><option value="">Toutes</option></select></div>
+          </div>
+          <button class="bouton" id="exporter" type="button">⬇ Télécharger la liste d'appels</button>
+          <hr style="border:0;border-top:1px solid var(--bordure);width:100%">
+          <div>
+            <label for="fichier-import">Réimporter le fichier rempli</label>
+            <input id="fichier-import" type="file" accept=".csv,text/csv">
+          </div>
+          <div id="resultat-import"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api, echapper, toast } from '/commun.js';
+
+    const $ = (id) => document.getElementById(id);
+    let jeton = null;
+    try { jeton = sessionStorage.getItem('dawa.equipe'); } catch {}
+    const TYPES = { hopital: 'Hôpital', centre: 'Centre de santé', poste: 'Poste de santé', case: 'Case de santé', maternite: 'Maternité', clinique: 'Clinique' };
+    const ETATS = { verifie: ['✔ Vérifié', 'verte'], osm: ['À vérifier', 'orange'], sans: ['Sans numéro', ''] };
+    const lienTel = (n) => `tel:${String(n).replace(/[^\d+]/g, '')}`;
+    const carte = (s) => `https://www.google.com/maps?q=${s.la},${s.lo}`;
+
+    const appel = (chemin, options = {}) => api(chemin, { ...options, jeton }).catch((e) => {
+      if (e.statut === 401) sortir();
+      throw e;
+    });
+
+    function sortir() {
+      jeton = null;
+      try { sessionStorage.removeItem('dawa.equipe'); } catch {}
+      $('ecran-app').classList.add('cache');
+      $('deconnexion').classList.add('cache');
+      $('ecran-connexion').classList.remove('cache');
+    }
+
+    $('form-connexion').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      jeton = $('jeton').value.trim();
+      try {
+        await api('/api/admin/stats', { jeton });
+        try { sessionStorage.setItem('dawa.equipe', jeton); } catch {}
+        demarrer();
+      } catch (err) {
+        $('erreur-connexion').textContent = err.message;
+      }
+    });
+    $('deconnexion').addEventListener('click', sortir);
+
+    document.querySelector('.onglets').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-onglet]');
+      if (b) ouvrirOnglet(b.dataset.onglet);
+    });
+    function ouvrirOnglet(nom) {
+      document.querySelectorAll('[data-onglet]').forEach((x) => x.setAttribute('aria-selected', x.dataset.onglet === nom));
+      document.querySelectorAll('[data-panneau]').forEach((p) => p.classList.toggle('cache', p.dataset.panneau !== nom));
+      if (nom === 'propositions') chargerPropositions();
+      if (nom === 'signalements') chargerSignalements();
+    }
+
+    async function demarrer() {
+      $('ecran-connexion').classList.add('cache');
+      $('ecran-app').classList.remove('cache');
+      $('deconnexion').classList.remove('cache');
+      await chargerStats(true);
+      await chargerListe();
+    }
+
+    async function chargerStats(remplirZones = false) {
+      const s = await appel('/api/admin/stats');
+      const pct = (n) => (s.total ? (n / s.total) * 100 : 0);
+      $('resume').innerHTML = `<b>${s.verifie}</b> vérifiés · <b>${s.osm}</b> à vérifier · <b>${s.sans}</b> sans numéro, sur <b>${s.total}</b> structures de soins
+        (${Math.round(pct(s.verifie + s.osm))} % ont un numéro).`;
+      $('barre').innerHTML = `<span style="width:${pct(s.verifie)}%;background:var(--vert)"></span><span style="width:${pct(s.osm)}%;background:var(--orange)"></span>`;
+      for (const [id, n] of [['nb-prop', s.propositions], ['nb-sig', s.signalements]]) {
+        $(id).textContent = n;
+        $(id).classList.toggle('cache', !n);
+      }
+      $('corps-zones').innerHTML = s.par_ville.map((z) => {
+        const sans = z.total - z.verifie - z.osm;
+        return `<tr data-zone="${echapper(z.ville)}"><td>${echapper(z.ville)}</td><td class="nombre">${z.total}</td><td class="nombre">${z.verifie}</td>
+          <td class="nombre">${z.osm}</td><td class="nombre">${sans}</td><td class="nombre">${Math.round(((z.verifie + z.osm) / z.total) * 100)} %</td></tr>`;
+      }).join('');
+      if (remplirZones) {
+        for (const sel of [$('f-zone'), $('x-zone')]) {
+          s.par_ville.map((z) => z.ville).sort((a, b) => a.localeCompare(b, 'fr')).forEach((v) => sel.add(new Option(v, v)));
+        }
+      }
+    }
+
+    $('corps-zones').addEventListener('click', (e) => {
+      const tr = e.target.closest('[data-zone]');
+      if (!tr) return;
+      $('f-zone').value = tr.dataset.zone;
+      ouvrirOnglet('structures');
+      chargerListe();
+    });
+
+    // --- Liste des structures -------------------------------------------------
+    let minuteur;
+    for (const id of ['f-zone', 'f-type', 'f-etat']) $(id).addEventListener('change', chargerListe);
+    $('f-q').addEventListener('input', () => { clearTimeout(minuteur); minuteur = setTimeout(chargerListe, 250); });
+
+    async function chargerListe() {
+      const p = new URLSearchParams({ ville: $('f-zone').value, type: $('f-type').value, etat: $('f-etat').value, q: $('f-q').value.trim() });
+      const liste = await appel(`/api/admin/structures?${p}`);
+      $('compte-liste').textContent = liste.length === 300
+        ? '300 premières structures affichées : choisis une zone pour affiner.'
+        : `${liste.length} structure${liste.length > 1 ? 's' : ''}`;
+      $('liste').innerHTML = liste.map((s) => {
+        const [libelle, couleur] = ETATS[s.etat];
+        return `<article class="carte ligne-structure" data-id="${s.id}">
+          <div class="tete">
+            <div><b>${echapper(s.n || '(sans nom)')}</b> <span class="pastille">${TYPES[s.t] || s.t}</span></div>
+            <span class="dci">${echapper(s.r)}${s.v ? ` · ${echapper(s.v)}` : ''} · <a href="${carte(s)}" target="_blank" rel="noopener">carte</a></span>
+          </div>
+          <div class="pharma-meta">
+            <span class="pastille ${couleur}">${libelle}</span>
+            ${s.tel ? `<a href="${lienTel(s.tel)}">📞 ${echapper(s.tel)}</a>` : ''}
+            ${s.propositions ? `<span class="pastille bleue">${s.propositions} proposition${s.propositions > 1 ? 's' : ''}</span>` : ''}
+          </div>
+          ${s.etat === 'osm' ? `<div class="ligne-boutons">
+            <button class="bouton petit" data-action="confirmer" data-tel="${echapper(s.tel)}">✔ J'ai appelé, ce numéro marche</button>
+            <button class="bouton petit danger" data-action="faux" data-tel="${echapper(s.tel)}">✕ Numéro faux</button></div>` : ''}
+          ${s.etat === 'verifie' ? `<div class="ligne-boutons"><button class="bouton petit danger" data-action="faux" data-tel="${echapper(s.tel)}">✕ Ne marche plus</button></div>` : ''}
+          <form class="saisie-num" data-action="ajouter">
+            <input name="tel" inputmode="tel" placeholder="${s.tel ? 'Autre numéro vérifié' : 'Numéro trouvé et vérifié'} (77 123 45 67)" required>
+            <select name="source" aria-label="Source">
+              <option value="appel">Appel</option><option value="district">District</option><option value="ministere">Ministère</option>
+            </select>
+            <button class="bouton petit" type="submit">Enregistrer</button>
+          </form>
+        </article>`;
+      }).join('') || '<p class="vide">Aucune structure pour ces filtres.</p>';
+    }
+
+    $('liste').addEventListener('click', async (e) => {
+      const b = e.target.closest('button[data-action]');
+      if (!b) return;
+      const id = b.closest('[data-id]').dataset.id;
+      try {
+        if (b.dataset.action === 'confirmer') {
+          await appel('/api/admin/numeros', { methode: 'POST', corps: { structure_id: id, tel: b.dataset.tel, source: 'appel' } });
+          toast('Numéro vérifié : il apparaît avec ✔ dans l\'app.');
+        } else if (b.dataset.action === 'faux') {
+          if (!confirm('Retirer ce numéro de l\'application ?')) return;
+          await appel('/api/admin/numeros/faux', { methode: 'POST', corps: { structure_id: id, tel: b.dataset.tel } });
+          toast('Numéro retiré de l\'app.');
+        }
+        await Promise.all([chargerStats(), chargerListe()]);
+      } catch (err) { toast(err.message); }
+    });
+
+    $('liste').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const id = f.closest('[data-id]').dataset.id;
+      try {
+        const r = await appel('/api/admin/numeros', { methode: 'POST', corps: { structure_id: id, tel: f.tel.value, source: f.source.value } });
+        toast(`${r.tel} enregistré et publié.`);
+        await Promise.all([chargerStats(), chargerListe()]);
+      } catch (err) { toast(err.message); }
+    });
+
+    $('form-ajout').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      $('erreur-ajout').textContent = '';
+      try {
+        await appel('/api/admin/structures/ajouter', { methode: 'POST', corps: {
+          nom: f.nom.value, type: f.type.value, source: f.source.value, position: f.position.value, tel: f.tel.value,
+        } });
+        toast(`« ${f.nom.value} » ajoutée et visible dans l'app.`);
+        $('f-q').value = f.nom.value; $('f-etat').value = ''; $('f-zone').value = '';
+        f.reset();
+        await Promise.all([chargerStats(), chargerListe()]);
+      } catch (err) { $('erreur-ajout').textContent = err.message; }
+    });
+
+    // --- Propositions des utilisateurs ----------------------------------------
+    async function chargerPropositions() {
+      const liste = await appel('/api/admin/propositions');
+      $('liste-prop').innerHTML = liste.map((p) => `
+        <article class="carte ligne-structure" data-prop="${p.id}">
+          <div class="tete"><b>${echapper(p.structure?.n || p.structure_id)}</b>
+            <span class="dci">${p.structure ? `${TYPES[p.structure.t] || p.structure.t} · ${echapper(p.structure.r)}` : ''} · ${new Date(`${p.cree_le}Z`).toLocaleString('fr-FR')}</span></div>
+          <div class="pharma-meta"><a href="${lienTel(p.tel)}">📞 ${echapper(p.tel)}</a>${p.note ? `<span>« ${echapper(p.note)} »</span>` : ''}</div>
+          <div class="ligne-boutons">
+            <a class="bouton petit secondaire" href="${lienTel(p.tel)}">📞 Appeler pour vérifier</a>
+            <button class="bouton petit" data-statut="verifie">✔ Vérifié, publier</button>
+            <button class="bouton petit danger" data-statut="rejete">✕ Faux</button>
+          </div>
+        </article>`).join('') || '<p class="vide">Aucune proposition en attente.</p>';
+    }
+    $('liste-prop').addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-statut]');
+      if (!b) return;
+      try {
+        await appel('/api/admin/numeros/statut', { methode: 'POST', corps: { id: b.closest('[data-prop]').dataset.prop, statut: b.dataset.statut } });
+        toast(b.dataset.statut === 'verifie' ? 'Publié dans l\'app.' : 'Proposition rejetée.');
+        await Promise.all([chargerStats(), chargerPropositions()]);
+      } catch (err) { toast(err.message); }
+    });
+
+    // --- Signalements ---------------------------------------------------------
+    async function chargerSignalements() {
+      const liste = await appel('/api/admin/signalements');
+      $('liste-sig').innerHTML = liste.map((s) => `
+        <article class="carte ligne-structure" data-sig="${s.id}">
+          <div class="tete"><b>${echapper(s.structure?.n || s.nom || s.structure_id)}</b>
+            <span class="dci">${s.structure ? `${echapper(s.structure.r)} · ` : ''}${new Date(`${s.cree_le}Z`).toLocaleString('fr-FR')}</span></div>
+          <p style="margin:0">« ${echapper(s.message)} »</p>
+          <div class="ligne-boutons">
+            ${s.structure ? `<button class="bouton petit secondaire" data-voir="${echapper(s.structure.n || '')}">Voir la structure</button>` : ''}
+            <button class="bouton petit" data-traite>✔ Traité</button>
+          </div>
+        </article>`).join('') || '<p class="vide">Aucun signalement en attente.</p>';
+    }
+    $('liste-sig').addEventListener('click', async (e) => {
+      const voir = e.target.closest('[data-voir]');
+      if (voir) {
+        $('f-q').value = voir.dataset.voir; $('f-zone').value = ''; $('f-etat').value = '';
+        ouvrirOnglet('structures');
+        return chargerListe();
+      }
+      if (!e.target.closest('[data-traite]')) return;
+      await appel('/api/admin/signalements/traite', { methode: 'POST', corps: { id: e.target.closest('[data-sig]').dataset.sig } });
+      await Promise.all([chargerStats(), chargerSignalements()]);
+    });
+
+    // --- Excel ----------------------------------------------------------------
+    $('exporter').addEventListener('click', async () => {
+      const p = new URLSearchParams({ ville: $('x-zone').value, etat: $('x-etat').value });
+      const res = await fetch(`/api/admin/export.csv?${p}`, { headers: { Authorization: `Bearer ${jeton}` } });
+      if (!res.ok) return toast('Export impossible.');
+      const nom = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'dawa-numeros.csv';
+      const lien = Object.assign(document.createElement('a'), { href: URL.createObjectURL(await res.blob()), download: nom });
+      lien.click();
+      URL.revokeObjectURL(lien.href);
+    });
+
+    $('fichier-import').addEventListener('change', async (e) => {
+      const fichier = e.target.files[0];
+      if (!fichier) return;
+      const res = await fetch('/api/admin/import-csv', {
+        method: 'POST', headers: { Authorization: `Bearer ${jeton}`, 'Content-Type': 'text/csv' }, body: await fichier.text(),
+      });
+      const r = await res.json();
+      $('resultat-import').innerHTML = res.ok
+        ? `<p class="pastille verte">${r.ajoutes} numéro${r.ajoutes > 1 ? 's' : ''} et ${r.structures} nouvelle${r.structures > 1 ? 's' : ''} structure${r.structures > 1 ? 's' : ''} publiés</p>
+           ${r.erreurs.length ? `<ul class="erreur">${r.erreurs.map((x) => `<li>${echapper(x)}</li>`).join('')}</ul>` : ''}`
+        : `<p class="erreur">${echapper(r.erreur)}</p>`;
+      e.target.value = '';
+      chargerStats();
+    });
+
+    if (jeton) demarrer().catch(sortir); else sortir();
+  </script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dawa : urgences médicales au Sénégal</title>
+  <meta name="description" content="SOS, structures de santé proches, premiers secours et fiche médicale. Gratuit, marche sans internet.">
+  <meta name="theme-color" content="#0f7b5a">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icone.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icone.svg">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body class="app">
+  <div id="bandeau-hors-ligne" class="hors-ligne cache"></div>
+  <header class="app-entete">
+    <div class="conteneur">
+      <a class="logo" href="#sos"><span class="logo-pastille">✚</span> Dawa</a>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="installer" class="bouton petit secondaire cache"></button>
+        <div class="choix-langue" role="group" aria-label="Langue">
+          <button data-langue="fr">FR</button>
+          <button data-langue="wo">WO</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="vue" class="conteneur vue"></main>
+
+  <nav class="barre-nav" id="barre-nav"></nav>
+
+  <noscript><p class="conteneur">Active JavaScript pour utiliser Dawa. En urgence, appelle le 1515 (SAMU) ou le 18 (pompiers).</p></noscript>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

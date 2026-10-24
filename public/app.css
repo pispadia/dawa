@@ -1,0 +1,183 @@
+/* Application d'urgence (s'ajoute à style.css). Pensée pour un téléphone, utilisable sous stress. */
+:root {
+  --sos: #d92d20;
+  --sos-fonce: #b42318;
+  --sos-clair: #fef3f2;
+  --barre-h: 64px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --sos: #f04438; --sos-fonce: #f97066; --sos-clair: #3b17154d; }
+}
+
+body.app { padding-bottom: calc(var(--barre-h) + env(safe-area-inset-bottom)); }
+
+.app-entete {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--surface);
+  border-bottom: 1px solid var(--bordure);
+}
+.app-entete .conteneur { display: flex; align-items: center; justify-content: space-between; padding-block: 10px; gap: 8px; }
+
+.choix-langue { display: inline-flex; border: 1px solid var(--bordure); border-radius: 999px; overflow: hidden; }
+.choix-langue button {
+  border: 0; background: none; padding: 6px 12px; font-weight: 600; font-size: .85rem; color: var(--texte-doux); cursor: pointer;
+}
+.choix-langue button[aria-pressed="true"] { background: var(--vert); color: #fff; }
+
+.vue { padding-block: 20px 28px; }
+.vue h1 { font-size: 1.5rem; }
+
+.hors-ligne { background: var(--bleu-clair); color: var(--bleu); text-align: center; font-size: .85rem; padding: 6px 16px; }
+
+/* Barre de navigation du bas */
+.barre-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--surface);
+  border-top: 1px solid var(--bordure);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.barre-nav a {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  height: var(--barre-h);
+  text-decoration: none; color: var(--texte-doux); font-size: .72rem; font-weight: 600; text-align: center; line-height: 1.15;
+  padding-inline: 4px;
+}
+.barre-nav a span:first-child { font-size: 1.35rem; }
+.barre-nav a[aria-current="page"] { color: var(--vert); }
+.barre-nav a.nav-sos[aria-current="page"] { color: var(--sos); }
+
+/* Écran SOS */
+.sos-accueil { text-align: center; }
+.bouton-sos {
+  display: grid; place-items: center;
+  width: min(62vw, 240px); aspect-ratio: 1;
+  margin: 24px auto;
+  border-radius: 50%;
+  border: 0;
+  background: radial-gradient(circle at 35% 30%, #ff6b5f, var(--sos) 60%, var(--sos-fonce));
+  color: #fff;
+  font-size: clamp(2.6rem, 12vw, 3.6rem);
+  font-weight: 900;
+  letter-spacing: .06em;
+  cursor: pointer;
+  box-shadow: 0 0 0 12px var(--sos-clair), 0 12px 30px rgba(217, 45, 32, .35);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+.bouton-sos:active { transform: scale(.97); }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 10px var(--sos-clair), 0 12px 30px rgba(217, 45, 32, .3); }
+  50% { box-shadow: 0 0 0 22px var(--sos-clair), 0 12px 30px rgba(217, 45, 32, .3); }
+}
+@media (prefers-reduced-motion: reduce) { .bouton-sos { animation: none; } }
+
+.numeros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+.numero {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 12px 6px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--bordure);
+  text-decoration: none; color: var(--texte);
+}
+.numero b { font-size: 1.4rem; line-height: 1.1; }
+.numero small { color: var(--texte-doux); font-size: .8rem; }
+
+.titre-section { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--texte-doux); font-weight: 700; margin: 24px 0 10px; text-align: left; }
+
+.types { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.type-urgence {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 104px; padding: 12px 8px;
+  border-radius: 14px; border: 1px solid var(--bordure); background: var(--surface);
+  color: var(--texte); font: inherit; font-weight: 600; text-align: center; cursor: pointer;
+}
+.type-urgence span { font-size: 2rem; }
+.type-urgence:active, .type-urgence:hover { border-color: var(--sos); background: var(--sos-clair); }
+
+.compte {
+  display: grid; place-items: center; text-align: center; gap: 16px; padding-top: 24px;
+}
+.compte .chiffre {
+  width: 180px; height: 180px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 5rem; font-weight: 900; color: #fff; background: var(--sos);
+}
+.bouton.enorme { width: 100%; padding: 18px; font-size: 1.15rem; border-radius: 14px; }
+.bouton.sos { background: var(--sos); color: #fff; }
+.bouton.sos:hover { background: var(--sos-fonce); }
+
+.etat-position { display: flex; align-items: center; gap: 8px; font-size: .9rem; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
+.etat-position.ok { background: var(--vert-clair); color: var(--vert); }
+.etat-position.ko { background: var(--orange-clair); color: var(--orange); }
+
+.etape { display: grid; gap: 10px; margin-top: 14px; }
+.etape h2 { display: flex; gap: 10px; align-items: center; margin: 0; font-size: 1.05rem; }
+.etape h2 .num {
+  display: grid; place-items: center; width: 28px; height: 28px; flex: none;
+  border-radius: 50%; background: var(--sos); color: #fff; font-size: .9rem;
+}
+.ligne-boutons { display: flex; gap: 8px; flex-wrap: wrap; }
+.ligne-boutons .bouton { flex: 1 1 auto; }
+.contacts-alerte { display: grid; gap: 6px; }
+.contact-alerte { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+.contact-alerte .bouton { justify-content: flex-start; overflow: hidden; text-overflow: ellipsis; }
+.aide-petite { font-size: .82rem; color: var(--texte-doux); margin: 0; }
+
+.fiche-secours { border: 2px solid var(--sos); }
+.fiche-secours dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 1.05rem; }
+.fiche-secours dt { color: var(--texte-doux); font-size: .9rem; }
+.fiche-secours dd { margin: 0; font-weight: 700; }
+
+/* Santé proche */
+.filtres { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin: 12px 0; }
+.filtres button {
+  flex: none; border: 1px solid var(--bordure); background: var(--surface); color: var(--texte);
+  border-radius: 999px; padding: 7px 12px; font: inherit; font-size: .88rem; cursor: pointer;
+}
+.filtres button[aria-pressed="true"] { background: var(--vert); border-color: var(--vert); color: #fff; }
+
+.structure { display: grid; gap: 8px; padding: 14px 16px; }
+.structure-tete { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.structure-nom { font-weight: 700; }
+.structure-dist { font-weight: 800; white-space: nowrap; color: var(--vert); }
+.lien-discret { background: none; border: 0; color: var(--texte-doux); font: inherit; font-size: .8rem; text-decoration: underline; cursor: pointer; padding: 0; justify-self: start; }
+
+.position-choix { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 560px) { .position-choix { grid-template-columns: auto 1fr; align-items: end; } }
+
+/* Premiers secours */
+.liste-fiches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.carte-fiche {
+  display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+  padding: 14px; border-radius: 14px; border: 1px solid var(--bordure); background: var(--surface);
+  text-decoration: none; color: var(--texte); font-weight: 600; min-height: 96px;
+}
+.carte-fiche span { font-size: 1.8rem; }
+.avertissement { background: var(--orange-clair); color: var(--orange); border-radius: 10px; padding: 10px 12px; font-size: .85rem; margin: 0 0 14px; }
+.etapes { margin: 0; padding-left: 0; list-style: none; counter-reset: e; display: grid; gap: 10px; }
+.etapes li { counter-increment: e; display: grid; grid-template-columns: 32px 1fr; gap: 10px; font-size: 1.02rem; }
+.etapes li::before {
+  content: counter(e); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--vert-clair); color: var(--vert); font-weight: 800;
+}
+.liste-eviter, .liste-danger { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 8px; }
+.liste-eviter li::before { content: '✕  '; color: var(--rouge); font-weight: 800; }
+.liste-danger li::before { content: '!  '; color: var(--orange); font-weight: 900; }
+.bloc { margin-top: 16px; }
+.bloc h2 { font-size: 1rem; }
+
+/* Fiche médicale */
+.cases { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.cases label { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--texte); font-size: .95rem; margin: 0; }
+.cases input { width: 20px; height: 20px; }
+textarea {
+  width: 100%; padding: 11px 12px; border: 1px solid var(--bordure); border-radius: 10px;
+  background: var(--surface); color: var(--texte); min-height: 70px; resize: vertical;
+}
+.contact-ligne { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+@media (max-width: 420px) { .contact-ligne { grid-template-columns: 1fr auto; } .contact-ligne .champ-nom { grid-column: 1 / -1; } }
+.note-confidentialite { display: flex; gap: 8px; background: var(--vert-clair); color: var(--vert); padding: 10px 12px; border-radius: 10px; font-size: .88rem; margin: 0 0 16px; }
