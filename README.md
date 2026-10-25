@@ -19,7 +19,8 @@ Application gratuite pour les urgences médicales, pensée pour les zones où le
 
 - Chaque `git push` sur `main` redéploie automatiquement, en 1 à 2 minutes.
 - Le jeton de l'espace équipe (`ADMIN_TOKEN`) est dans le tableau de bord Render, à la rubrique dawa › Environment.
-- **Offre gratuite** : le service s'endort après 15 minutes sans visite (environ 30 secondes au réveil). Une fois l'app ouverte une première fois, elle démarre instantanément sur le téléphone, même hors ligne. **La base est effacée à chaque redéploiement ou redémarrage**, donc les numéros vérifiés, les structures ajoutées et les signalements sont perdus. Avant de collecter de vrais numéros, il faut passer à une offre Render avec disque persistant (par exemple monté sur `/var/data`) et définir la variable `DATA_DIR=/var/data`.
+- **Offre gratuite** : le service s'endort après 15 minutes sans visite (environ 30 secondes au réveil). Une fois l'app ouverte une première fois, elle démarre instantanément sur le téléphone, même hors ligne.
+- **Données de l'équipe sauvegardées dans Supabase** (projet `dawa`, gratuit, région Francfort) : numéros, signalements et structures ajoutées. Le disque de Render est effacé à chaque redéploiement, alors le serveur recharge tout depuis Supabase au démarrage ([persistance.js](persistance.js)). Variables Render : `SUPABASE_URL`, `SUPABASE_KEY` (clé publiable) et `DAWA_DB_SECRET`. Les tables sont protégées par RLS : seules les requêtes qui portent ce secret passent. Sans ces variables, tout reste en local, ce qui convient au développement. Les données de démo des pharmacies, elles, restent locales et repartent de zéro.
 - Si une modification ne s'affiche pas sur le téléphone, change `VERSION` dans `public/sw.js`.
 
 ## Lancer
