@@ -9,11 +9,19 @@ import { rechercher, chercherMedicaments, reserver, enregistrerVente, ErreurMeti
 import { repondre } from './bot.js';
 import { chargerBase, publier, structuresBase, normaliserTel } from './structures.js';
 import { routesAdmin, estAdmin, Fichier, JETON_ADMIN } from './admin.js';
+import { persistanceActive, restaurer, inserer } from './persistance.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const dossierPublic = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 const db = ouvrirDb();
 chargerBase();
+// Le disque de Render repart à zéro à chaque déploiement : on recharge d'abord les données de l'équipe.
+if (persistanceActive) {
+  const bilan = await restaurer(db);
+  console.log(`Données de l'équipe restaurées depuis Supabase : ${JSON.stringify(bilan)}`);
+} else {
+  console.log('Supabase non configuré : numéros et signalements restent sur le disque local.');
+}
 publier(db);
 
 // Jeton -> id de pharmacie. En mémoire : une reconnexion est nécessaire après redémarrage.
@@ -127,8 +135,9 @@ const publiques = {
     if (!n) throw new ErreurMetier('Numéro invalide. Exemple : 77 123 45 67 ou 33 123 45 67.');
     const deja = db.prepare('SELECT 1 FROM numeros WHERE structure_id = ? AND tel = ?').get(id, n);
     if (!deja) {
-      db.prepare("INSERT INTO numeros (structure_id, tel, statut, source, note) VALUES (?, ?, 'propose', 'utilisateur', ?)")
-        .run(id, n, String(note ?? '').trim().slice(0, 200) || null);
+      await inserer(db, 'numeros', {
+        structure_id: id, tel: n, statut: 'propose', source: 'utilisateur', note: String(note ?? '').trim().slice(0, 200) || null,
+      });
     }
     return { ok: true };
   },
@@ -139,8 +148,7 @@ const publiques = {
     const id = String(structure_id ?? '').slice(0, 20);
     const texte = String(message ?? '').trim().slice(0, 500);
     if (!/^[nwrd]\d+$/.test(id) || !texte) throw new ErreurMetier('Signalement invalide.');
-    db.prepare('INSERT INTO signalements (structure_id, nom, message) VALUES (?, ?, ?)')
-      .run(id, String(nom ?? '').slice(0, 120), texte);
+    await inserer(db, 'signalements', { structure_id: id, nom: String(nom ?? '').slice(0, 120), message: texte });
     return { ok: true };
   },
 

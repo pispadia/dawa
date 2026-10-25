@@ -5,6 +5,7 @@ import { ErreurMetier } from './services.js';
 import {
   TYPES_SOIN, structuresBase, etatNumeros, telFinal, publier, normaliserTel, lirePosition,
 } from './structures.js';
+import { inserer, modifier, maintenant } from './persistance.js';
 
 export const JETON_ADMIN = process.env.ADMIN_TOKEN || randomBytes(12).toString('hex');
 
@@ -80,18 +81,23 @@ function filtrer(liste, url) {
     && (!q || s.n.toLowerCase().includes(q)));
 }
 
-function ajouterVerifie(db, { structure_id, tel, source, note }) {
+async function ajouterVerifie(db, { structure_id, tel, source, note }) {
   if (!structuresBase().some((s) => s.id === structure_id)) throw new ErreurMetier('Structure inconnue.');
   const n = normaliserTel(tel);
   if (!n) throw new ErreurMetier(`Numéro invalide : « ${tel} ». Format attendu : 77 123 45 67 ou 33 123 45 67.`);
-  db.prepare(`INSERT INTO numeros (structure_id, tel, statut, source, note, verifie_le)
-    VALUES (?, ?, 'verifie', ?, ?, datetime('now'))`)
-    .run(structure_id, n, SOURCES.includes(source) ? source : 'appel', String(note ?? '').slice(0, 300) || null);
+  await inserer(db, 'numeros', {
+    structure_id,
+    tel: n,
+    statut: 'verifie',
+    source: SOURCES.includes(source) ? source : 'appel',
+    note: String(note ?? '').slice(0, 300) || null,
+    verifie_le: maintenant(),
+  });
   return n;
 }
 
 // Structure absente d'OpenStreetMap. Le numéro, s'il est donné, est enregistré comme vérifié.
-function ajouterStructure(db, { nom, type, position, tel, source }) {
+async function ajouterStructure(db, { nom, type, position, tel, source }) {
   const n = String(nom ?? '').trim().slice(0, 120);
   if (n.length < 3) throw new ErreurMetier('Indique le nom de la structure.');
   if (!TYPES_SOIN.includes(type)) throw new ErreurMetier(`Type inconnu : « ${type} ». Types possibles : ${TYPES_SOIN.join(', ')}.`);
@@ -102,11 +108,12 @@ function ajouterStructure(db, { nom, type, position, tel, source }) {
     && Math.abs(s.la - p.la) < 0.005 && Math.abs(s.lo - p.lo) < 0.005);
   if (doublon) throw new ErreurMetier(`« ${n} » existe déjà à cet endroit.`);
   if (tel && !normaliserTel(tel)) throw new ErreurMetier(`Numéro invalide : « ${tel} ».`);
-  const { lastInsertRowid } = db.prepare('INSERT INTO structures_ajoutees (nom, type, la, lo, source) VALUES (?, ?, ?, ?, ?)')
-    .run(n, type, p.la, p.lo, SOURCES.includes(source) ? source : 'appel');
-  const id = `d${lastInsertRowid}`;
+  const nouvelId = await inserer(db, 'structures_ajoutees', {
+    nom: n, type, la: p.la, lo: p.lo, source: SOURCES.includes(source) ? source : 'appel',
+  });
+  const id = `d${nouvelId}`;
   publier(db); // pour que la nouvelle structure soit connue avant d'y rattacher le numéro
-  if (tel) ajouterVerifie(db, { structure_id: id, tel, source });
+  if (tel) await ajouterVerifie(db, { structure_id: id, tel, source });
   return id;
 }
 
@@ -142,13 +149,13 @@ export function routesAdmin(db, lireCorps, lireTexte) {
 
     // L'équipe a appelé le numéro et la structure a confirmé.
     'POST /api/admin/numeros': async (req) => {
-      const tel = ajouterVerifie(db, await lireCorps(req));
+      const tel = await ajouterVerifie(db, await lireCorps(req));
       publier(db);
       return { tel };
     },
 
     'POST /api/admin/structures/ajouter': async (req) => {
-      const id = ajouterStructure(db, await lireCorps(req));
+      const id = await ajouterStructure(db, await lireCorps(req));
       publier(db);
       return { id };
     },
@@ -156,9 +163,9 @@ export function routesAdmin(db, lireCorps, lireTexte) {
     'POST /api/admin/numeros/statut': async (req) => {
       const { id, statut } = await lireCorps(req);
       if (!['verifie', 'rejete'].includes(statut)) throw new ErreurMetier('Statut invalide.');
-      const r = db.prepare("UPDATE numeros SET statut = ?, verifie_le = datetime('now') WHERE id = ? AND statut = 'propose'")
-        .run(statut, Number(id));
-      if (!r.changes) throw new ErreurMetier('Proposition introuvable ou déjà traitée.');
+      const p = db.prepare("SELECT id FROM numeros WHERE id = ? AND statut = 'propose'").get(Number(id));
+      if (!p) throw new ErreurMetier('Proposition introuvable ou déjà traitée.');
+      await modifier(db, 'numeros', p.id, { statut, verifie_le: maintenant() });
       publier(db);
       return { ok: true };
     },
@@ -167,8 +174,9 @@ export function routesAdmin(db, lireCorps, lireTexte) {
     'POST /api/admin/numeros/faux': async (req) => {
       const { structure_id, tel } = await lireCorps(req);
       if (!tel) throw new ErreurMetier('Aucun numéro à marquer comme faux.');
-      db.prepare(`INSERT INTO numeros (structure_id, tel, statut, source, verifie_le)
-        VALUES (?, ?, 'rejete', 'appel', datetime('now'))`).run(String(structure_id), String(tel));
+      await inserer(db, 'numeros', {
+        structure_id: String(structure_id), tel: String(tel), statut: 'rejete', source: 'appel', verifie_le: maintenant(),
+      });
       publier(db);
       return { ok: true };
     },
@@ -194,13 +202,13 @@ export function routesAdmin(db, lireCorps, lireTexte) {
       for (const [i, l] of lignes.entries()) {
         try {
           if (!l.id && l.nom) {
-            ajouterStructure(db, { nom: l.nom, type: l.type, position: l.carte, tel: l.numero_verifie, source: l.source || 'appel' });
+            await ajouterStructure(db, { nom: l.nom, type: l.type, position: l.carte, tel: l.numero_verifie, source: l.source || 'appel' });
             structures++;
             if (l.numero_verifie) ajoutes++;
             continue;
           }
           if (!l.numero_verifie) continue;
-          ajouterVerifie(db, { structure_id: l.id, tel: l.numero_verifie, source: l.source || 'appel', note: l.note });
+          await ajouterVerifie(db, { structure_id: l.id, tel: l.numero_verifie, source: l.source || 'appel', note: l.note });
           ajoutes++;
         } catch (e) {
           if (!(e instanceof ErreurMetier)) throw e;
@@ -219,7 +227,7 @@ export function routesAdmin(db, lireCorps, lireTexte) {
 
     'POST /api/admin/signalements/traite': async (req) => {
       const { id } = await lireCorps(req);
-      db.prepare('UPDATE signalements SET traite = 1 WHERE id = ?').run(Number(id));
+      await modifier(db, 'signalements', Number(id), { traite: 1 });
       return { ok: true };
     },
   };
