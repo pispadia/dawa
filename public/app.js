@@ -24,6 +24,7 @@ const TYPES_URGENCE = [
 const NUMERO_PAR_URGENCE = { accident: '18', brulure: '18' };
 
 const FILTRES = {
+  tous: ['hopital', 'centre', 'maternite', 'poste', 'case', 'clinique'],
   urgence: ['hopital', 'centre', 'maternite'],
   poste: ['poste', 'case'],
   clinique: ['clinique', 'cabinet'],
@@ -215,6 +216,8 @@ function vueAlerte() {
       <h2><span class="num">1</span>${t('etape_appeler')}</h2>
       <a class="bouton enorme sos" href="${lienTel(principal)}">${infoPrincipal.icone} ${t(infoPrincipal.cle)} : ${principal}</a>
       <div class="ligne-boutons">${autres.map((x) => `<a class="bouton secondaire" href="${lienTel(x.n)}">${x.icone} ${t(x.cle)} ${x.n}</a>`).join('')}</div>
+      <p class="aide-petite">${t('appel_gratuit')}</p>
+      ${blocPositionADire(plusProche)}
     </section>
 
     <section class="carte etape">
@@ -232,13 +235,13 @@ function vueAlerte() {
 
     <section class="carte etape">
       <h2><span class="num">3</span>${t('etape_poste')}</h2>
-      ${soin ? carteStructureAlerte(soin, texte)
-        : alerte.positionStatut === 'attente' || !structures ? '<p class="aide-petite">…</p>'
-        : !origine() ? `<p class="aide-petite">${t('position_ko')}</p><a class="bouton secondaire" href="#proche">🏥 ${t('nav_proche')}</a>`
-        : `<p class="aide-petite">${t('aucune_structure_joignable')}</p>`}
-      ${plusProche && plusProche.id !== soin?.id ? `
-        <p class="aide-petite">${t('aller_vers')} : <b>${echapper(nomStructure(plusProche))}</b>, ${formatDistance(plusProche.km)}
-          · <a href="${lienItineraire(plusProche)}" target="_blank" rel="noopener">${t('itineraire')}</a> · ${t('pas_de_numero')}</p>` : ''}
+      ${alerte.positionStatut === 'attente' || !structures ? '<p class="aide-petite">…</p>'
+        : !origine() || !plusProche ? `<p class="aide-petite">${t('position_ko')}</p><a class="bouton secondaire" href="#proche">🏥 ${t('nav_proche')}</a>`
+        // La plus proche d'abord, même sans numéro : c'est là qu'on ira.
+        : `<p class="sous-etape">📍 ${t('la_plus_proche')}</p>${carteStructureAlerte(plusProche, texte)}
+          ${plusProche.tel ? '' : soin
+            ? `<p class="sous-etape">📞 ${t('la_plus_proche_joignable')}</p>${carteStructureAlerte(soin, texte)}`
+            : `<p class="aide-petite">${t('aucune_structure_joignable')}</p>`}`}
     </section>
 
     ${ficheGeste ? `
@@ -253,12 +256,28 @@ function vueAlerte() {
 
 function carteStructureAlerte(s, texte) {
   return `
-    <div><b>${echapper(nomStructure(s))}</b> <span class="pastille">${t(`ty_${s.t}`)}</span><br>
-      <span class="aide-petite">${formatDistance(s.km)}${s.v ? ` · ${echapper(s.v)}` : ''} · ${echapper(s.tel)}</span></div>
-    <div class="ligne-boutons">
-      <a class="bouton" href="${lienTel(s.tel)}">📞 ${t('appeler')}</a>
-      <a class="bouton secondaire" href="${echapper(lienSms([s.tel], texte))}">💬 ${t('sms')}</a>
-      <a class="bouton secondaire" href="${lienItineraire(s)}" target="_blank" rel="noopener">🧭 ${t('itineraire')}</a>
+    <div class="structure-alerte">
+      <div><b>${echapper(nomStructure(s))}</b> <span class="pastille">${t(`ty_${s.t}`)}</span><br>
+        <span class="aide-petite">${formatDistance(s.km)}${s.v ? ` · ${echapper(s.v)}` : ''}${s.tel ? ` · ${echapper(s.tel)}` : ` · ${t('pas_de_numero')}`}</span></div>
+      <div class="ligne-boutons">
+        ${s.tel ? `<a class="bouton" href="${lienTel(s.tel)}">📞 ${t('appeler')}</a>
+        <a class="bouton secondaire" href="${echapper(lienSms([s.tel], texte))}">💬 ${t('sms')}</a>` : ''}
+        <a class="bouton ${s.tel ? 'secondaire' : ''}" href="${lienItineraire(s)}" target="_blank" rel="noopener">🧭 ${t('itineraire')}</a>
+      </div>
+    </div>`;
+}
+
+// Sans crédit ni internet, l'appel au 1515 reste possible : il faut alors pouvoir dire où on est.
+function blocPositionADire(plusProche) {
+  const p = alerte.position;
+  if (!p) return '';
+  const repere = plusProche && plusProche.km <= 3 ? t('pres_de', { lieu: nomStructure(plusProche) }) : '';
+  const zone = plusProche?.r ? `${t('zone_de', { ville: plusProche.r })}` : '';
+  return `
+    <div class="position-a-dire">
+      <div class="aide-petite">🗣️ ${t('dire_position')}</div>
+      ${repere || zone ? `<div><b>${echapper([repere, zone].filter(Boolean).join(', '))}</b></div>` : ''}
+      <div class="coords">${p.la.toFixed(5)}, ${p.lo.toFixed(5)}</div>
     </div>`;
 }
 
@@ -319,13 +338,14 @@ function terminerAlerte() {
 
 // --- Santé proche ------------------------------------------------------------
 
-let filtreProche = 'urgence';
+// Par défaut tous les lieux de soins : en urgence, le plus proche compte plus que le type.
+let filtreProche = 'tous';
 let rechercheProcheEnCours = false;
 
 function vueProche() {
   const o = origine();
   const liste = o ? plusProches(FILTRES[filtreProche], 25) : [];
-  const libelleFiltre = { urgence: 'f_urgence', poste: 'f_poste', clinique: 'f_clinique', pharmacie: 'f_pharmacie' };
+  const libelleFiltre = { tous: 'f_tous', urgence: 'f_urgence', poste: 'f_poste', clinique: 'f_clinique', pharmacie: 'f_pharmacie' };
   return `
     <h1>${t('proche_titre')}</h1>
     <p class="sous-titre">${t('proche_aide')}</p>

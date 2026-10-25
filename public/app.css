@@ -181,3 +181,9 @@ textarea {
 .contact-ligne { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
 @media (max-width: 420px) { .contact-ligne { grid-template-columns: 1fr auto; } .contact-ligne .champ-nom { grid-column: 1 / -1; } }
 .note-confidentialite { display: flex; gap: 8px; background: var(--vert-clair); color: var(--vert); padding: 10px 12px; border-radius: 10px; font-size: .88rem; margin: 0 0 16px; }
+
+/* Alerte : structure la plus proche et position à dire au téléphone */
+.sous-etape { margin: 6px 0 0; font-weight: 700; font-size: .9rem; color: var(--texte-doux); }
+.structure-alerte { display: grid; gap: 8px; }
+.position-a-dire { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
+.position-a-dire .coords { font-size: 1.35rem; font-weight: 800; letter-spacing: .02em; font-variant-numeric: tabular-nums; }

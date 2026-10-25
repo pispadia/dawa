@@ -1,6 +1,6 @@
 // Service worker : l'application d'urgence doit s'ouvrir même sans réseau.
 // Changer VERSION à chaque mise en ligne pour que les téléphones récupèrent les nouveaux fichiers.
-const VERSION = 'dawa-v4';
+const VERSION = 'dawa-v5';
 const COQUE = [
   '/', '/index.html', '/app.js', '/i18n.js', '/secours.js', '/commun.js', '/villes.js',
   '/style.css', '/app.css', '/icone.svg', '/manifest.webmanifest', '/data/structures.json',
