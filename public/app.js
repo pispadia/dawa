@@ -2,8 +2,10 @@
 // Tout marche hors connexion sauf l'envoi des signalements.
 import { t, tFr, changerLangue, langueActuelle } from './i18n.js';
 import { FICHES, FICHE_PAR_URGENCE } from './secours.js';
-import { echapper, toast } from './commun.js';
+import { echapper, toast, demanderTexte } from './commun.js';
 import { VILLES } from './villes.js';
+import { illustration } from './illustrations.js';
+import { vueGuide, demarrerGuide, arreterGuide, activerBoussole } from './guide.js';
 
 const vue = document.getElementById('vue');
 
@@ -166,7 +168,7 @@ function vueTypes() {
     <button class="bouton petit secondaire" data-action="sos-retour">← ${t('retour')}</button>
     <h1 style="margin-top:14px">${t('quel_type')}</h1>
     <div class="types">${TYPES_URGENCE.map(([type, icone]) => `
-      <button class="type-urgence" data-action="choisir-type" data-type="${type}"><span>${icone}</span>${t(`t_${type}`)}</button>`).join('')}
+      <button class="type-urgence" data-action="choisir-type" data-type="${type}">${illustration(type, icone)}${t(`t_${type}`)}</button>`).join('')}
     </div>
     <div class="titre-section">${t('numeros')}</div>
     ${blocNumeros()}`;
@@ -246,7 +248,7 @@ function vueAlerte() {
 
     ${ficheGeste ? `
       <a class="carte etape" href="#secours/${ficheGeste.id}" style="text-decoration:none;color:inherit">
-        <h2><span style="font-size:1.4rem">${ficheGeste.icone}</span>${t('gestes')} : ${echapper(ficheGeste.titre[langueActuelle()] || ficheGeste.titre.fr)} →</h2>
+        <h2><span class="mini-illu">${illustration(ficheGeste.id, ficheGeste.icone)}</span>${t('gestes')} :${echapper(ficheGeste.titre[langueActuelle()] || ficheGeste.titre.fr)} →</h2>
       </a>` : ''}
 
     ${blocFicheSecours()}
@@ -262,7 +264,8 @@ function carteStructureAlerte(s, texte) {
       <div class="ligne-boutons">
         ${s.tel ? `<a class="bouton" href="${lienTel(s.tel)}">📞 ${t('appeler')}</a>
         <a class="bouton secondaire" href="${echapper(lienSms([s.tel], texte))}">💬 ${t('sms')}</a>` : ''}
-        <a class="bouton ${s.tel ? 'secondaire' : ''}" href="${lienItineraire(s)}" target="_blank" rel="noopener">🧭 ${t('itineraire')}</a>
+        <a class="bouton ${s.tel ? 'secondaire' : ''}" href="#guide/${s.id}">🧭 ${t('guider')}</a>
+        <a class="bouton secondaire" href="${lienItineraire(s)}" target="_blank" rel="noopener">🗺️ ${t('itineraire')}</a>
       </div>
     </div>`;
 }
@@ -377,7 +380,8 @@ function vueProche() {
         <div class="ligne-boutons">
           ${s.tel ? `<a class="bouton petit" href="${lienTel(s.tel)}">📞 ${t('appeler')}</a>`
             : `<button class="bouton petit secondaire" data-action="proposer-numero" data-id="${s.id}">➕ ${t('ajouter_numero')}</button>`}
-          <a class="bouton petit secondaire" href="${lienItineraire(s)}" target="_blank" rel="noopener">🧭 ${t('itineraire')}</a>
+          <a class="bouton petit secondaire" href="#guide/${s.id}">🧭 ${t('guider')}</a>
+          <a class="bouton petit secondaire" href="${lienItineraire(s)}" target="_blank" rel="noopener">🗺️ ${t('itineraire')}</a>
         </div>
         <button class="lien-discret" data-action="signaler" data-id="${s.id}">${t('signaler')}</button>
       </article>`).join('')}
@@ -388,7 +392,7 @@ function vueProche() {
 // Le numéro proposé n'apparaît qu'après vérification par l'équipe (appel à la structure).
 async function proposerNumero(id) {
   const s = structures?.find((x) => x.id === id);
-  const tel = window.prompt(t('numero_question', { nom: s ? nomStructure(s) : '' }));
+  const tel = await demanderTexte(t('numero_question', { nom: s ? nomStructure(s) : '' }), { type: 'tel', placeholder: '77 123 45 67', valider: t('envoyer'), annuler: t('annuler') });
   if (!tel || !tel.trim()) return;
   try {
     const res = await fetch('/api/numeros', {
@@ -405,7 +409,7 @@ async function proposerNumero(id) {
 
 async function signaler(id) {
   const s = structures?.find((x) => x.id === id);
-  const message = window.prompt(t('signale_question'));
+  const message = await demanderTexte(t('signale_question'), { valider: t('envoyer'), annuler: t('annuler') });
   if (!message || !message.trim()) return;
   try {
     const res = await fetch('/api/signalements', {
@@ -429,7 +433,7 @@ function vueSecours() {
     <p class="sous-titre">${t('secours_aide')}</p>
     <p class="avertissement">⚠️ ${t('a_valider')}</p>
     <div class="liste-fiches">${FICHES.map((f) => `
-      <a class="carte-fiche" href="#secours/${f.id}"><span>${f.icone}</span>${echapper(f.titre[l] || f.titre.fr)}</a>`).join('')}
+      <a class="carte-fiche" href="#secours/${f.id}">${illustration(f.id, f.icone)}${echapper(f.titre[l] || f.titre.fr)}</a>`).join('')}
     </div>`;
 }
 
@@ -568,7 +572,19 @@ function rendre() {
     <a href="#${id}" class="${id === 'sos' ? 'nav-sos' : ''}" ${id === onglet ? 'aria-current="page"' : ''}><span>${icone}</span><span>${t(cle)}</span></a>`).join('');
   document.querySelectorAll('[data-langue]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.langue === langueActuelle()));
 
-  if (onglet === 'proche') {
+  if (onglet !== 'guide') arreterGuide();
+
+  if (onglet === 'guide') {
+    if (!structures) {
+      vue.innerHTML = '<p class="vide">…</p>';
+      chargerStructures().then(() => location.hash.startsWith('#guide') && rendre());
+      return;
+    }
+    const s = structures.find((x) => x.id === param);
+    if (!s) { location.hash = '#proche'; return; }
+    vue.innerHTML = vueGuide(s, echapper(nomStructure(s)), { tel: s.tel ? lienTel(s.tel) : '', itineraire: lienItineraire(s) });
+    demarrerGuide(s, alerte?.position || position);
+  } else if (onglet === 'proche') {
     vue.innerHTML = vueProche();
     if (!structures) chargerStructures().then(() => location.hash.startsWith('#proche') && rendre());
   } else if (onglet === 'secours') {
@@ -615,6 +631,8 @@ vue.addEventListener('click', (e) => {
   } else if (action === 'filtre') { filtreProche = el.dataset.filtre; rendre(); }
   else if (action === 'signaler') signaler(el.dataset.id);
   else if (action === 'proposer-numero') proposerNumero(el.dataset.id);
+  else if (action === 'guide-retour') { if (history.length > 1) history.back(); else location.hash = '#proche'; }
+  else if (action === 'activer-boussole') activerBoussole();
   else if (action === 'ecouter') ecouter(el.dataset.id, el);
   else if (action === 'ajouter-contact') document.getElementById('contacts').insertAdjacentHTML('beforeend', ligneContact({ nom: '', tel: '' }));
   else if (action === 'retirer-contact') el.closest('.contact-ligne').remove();

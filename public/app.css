@@ -187,3 +187,34 @@ textarea {
 .structure-alerte { display: grid; gap: 8px; }
 .position-a-dire { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
 .position-a-dire .coords { font-size: 1.35rem; font-weight: 800; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+
+/* Illustrations des urgences */
+.type-urgence svg, .carte-fiche svg { width: 64px; height: 64px; flex: none; }
+.type-urgence { min-height: 128px; }
+.carte-fiche svg { width: 52px; height: 52px; }
+.pastille-emoji {
+  display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%;
+  background: var(--surface-2); font-size: 1.7rem; flex: none;
+}
+.type-urgence .pastille-emoji { width: 64px; height: 64px; font-size: 2rem; }
+.mini-illu { display: inline-flex; flex: none; }
+.mini-illu svg, .mini-illu .pastille-emoji { width: 36px; height: 36px; font-size: 1.2rem; }
+
+/* Guidage hors ligne */
+.guide { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 8px 0; }
+.boussole {
+  position: relative; width: min(72vw, 280px); aspect-ratio: 1;
+  border-radius: 50%; background: var(--surface); border: 2px solid var(--bordure); box-shadow: var(--ombre);
+}
+.rose { position: absolute; inset: 0; transition: transform .4s ease-out; }
+.cardinal { position: absolute; font-weight: 800; font-size: 1rem; color: var(--texte-doux); }
+.cardinal.n { top: 8px; left: 50%; transform: translateX(-50%); color: var(--sos); }
+.cardinal.s { bottom: 8px; left: 50%; transform: translateX(-50%); }
+.cardinal.e { right: 12px; top: 50%; transform: translateY(-50%); }
+.cardinal.o { left: 12px; top: 50%; transform: translateY(-50%); }
+.fleche { position: absolute; inset: 14%; transition: transform .4s ease-out; }
+.fleche path { fill: var(--vert); }
+@media (prefers-reduced-motion: reduce) { .rose, .fleche { transition: none; } }
+.guide-distance { font-size: 2.6rem; font-weight: 900; line-height: 1.1; margin-top: 6px; }
+.guide-direction { font-size: 1.05rem; font-weight: 600; }
+.guide-etat { font-size: .85rem; color: var(--texte-doux); min-height: 1.2em; }
