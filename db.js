@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const ici = path.dirname(fileURLToPath(import.meta.url));
-const dossierData = path.join(ici, 'data');
+// DATA_DIR : dossier d'un disque persistant en production (ex. /var/data sur Render).
+const dossierData = process.env.DATA_DIR || path.join(ici, 'data');
 const fichierDb = path.join(dossierData, 'dawa.db');
 
 // Coordonnées approximatives du centre de chaque quartier.

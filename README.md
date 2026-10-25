@@ -13,6 +13,15 @@ Application gratuite pour les urgences médicales, pensée pour les zones où le
 - **Hors ligne** : l'app s'installe sur Android (PWA) et s'ouvre sans internet. Les structures de santé et les fiches sont gardées sur le téléphone.
 - **Bot WhatsApp** : il répond à « urgence », à une position partagée, à « hôpital + ville » et à « serpent », « brûlure », etc. Il garde la recherche de médicaments à Dakar.
 
+## En ligne
+
+**https://dawa-81yj.onrender.com** : hébergé sur Render (offre gratuite, région Francfort), depuis le dépôt [github.com/pispadia/dawa](https://github.com/pispadia/dawa).
+
+- Chaque `git push` sur `main` redéploie automatiquement, en 1 à 2 minutes.
+- Le jeton de l'espace équipe (`ADMIN_TOKEN`) est dans le tableau de bord Render, à la rubrique dawa › Environment.
+- **Offre gratuite** : le service s'endort après 15 minutes sans visite (environ 30 secondes au réveil). Une fois l'app ouverte une première fois, elle démarre instantanément sur le téléphone, même hors ligne. **La base est effacée à chaque redéploiement ou redémarrage**, donc les numéros vérifiés, les structures ajoutées et les signalements sont perdus. Avant de collecter de vrais numéros, il faut passer à une offre Render avec disque persistant (par exemple monté sur `/var/data`) et définir la variable `DATA_DIR=/var/data`.
+- Si une modification ne s'affiche pas sur le téléphone, change `VERSION` dans `public/sw.js`.
+
 ## Lancer
 
 Il faut Node.js 22.13 ou plus récent. Aucune installation de paquets n'est nécessaire.
