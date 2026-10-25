@@ -656,5 +656,6 @@ if ('serviceWorker' in navigator) {
 
 changerLangue(langueActuelle());
 majHorsLigne();
-if (alerte) chargerStructures().then(rendre);
 rendre();
+// On charge les structures dès l'ouverture : en cas d'alerte, elles sont déjà prêtes.
+chargerStructures().then(() => { if (alerte || location.hash.startsWith('#proche')) rendre(); });

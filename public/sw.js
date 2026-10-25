@@ -1,6 +1,6 @@
 // Service worker : l'application d'urgence doit s'ouvrir même sans réseau.
 // Changer VERSION à chaque mise en ligne pour que les téléphones récupèrent les nouveaux fichiers.
-const VERSION = 'dawa-v3';
+const VERSION = 'dawa-v4';
 const COQUE = [
   '/', '/index.html', '/app.js', '/i18n.js', '/secours.js', '/commun.js', '/villes.js',
   '/style.css', '/app.css', '/icone.svg', '/manifest.webmanifest', '/data/structures.json',
@@ -25,17 +25,23 @@ self.addEventListener('fetch', (e) => {
   // API : toujours le réseau (données fraîches), rien en cache.
   if (url.pathname.startsWith('/api/')) return;
 
-  // Fichiers de l'app : réseau d'abord pour avoir la dernière version, cache si pas de réseau.
-  e.respondWith(
-    fetch(e.request)
+  // Fichiers de l'app : la copie du téléphone d'abord (instantané, même avec un réseau très lent),
+  // puis mise à jour en arrière-plan pour la prochaine ouverture.
+  e.respondWith((async () => {
+    const cache = await caches.open(VERSION);
+    const enCache = await cache.match(e.request, { ignoreSearch: true });
+    const reseau = fetch(e.request)
       .then((res) => {
-        if (res.ok) {
-          const copie = res.clone();
-          caches.open(VERSION).then((c) => c.put(e.request, copie));
-        }
+        if (res.ok) cache.put(e.request, res.clone());
         return res;
       })
-      .catch(() => caches.match(e.request, { ignoreSearch: true })
-        .then((r) => r || (e.request.mode === 'navigate' ? caches.match('/') : Response.error()))),
-  );
+      .catch(() => null);
+    if (enCache) {
+      e.waitUntil(reseau);
+      return enCache;
+    }
+    const res = await reseau;
+    if (res) return res;
+    return (e.request.mode === 'navigate' && (await cache.match('/'))) || Response.error();
+  })());
 });
