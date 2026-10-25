@@ -1,6 +1,7 @@
 // Guidage hors ligne vers une structure de santé : flèche + distance à vol d'oiseau.
 // N'utilise que le GPS et la boussole du téléphone : aucune connexion internet nécessaire.
 import { t } from './i18n.js';
+import { echapper } from './commun.js';
 
 const rad = (d) => (d * Math.PI) / 180;
 const deg = (r) => (r * 180) / Math.PI;
@@ -26,7 +27,7 @@ export function vueGuide(s, nom, liens) {
   return `
     <button class="bouton petit secondaire" data-action="guide-retour">← ${t('retour')}</button>
     <h1 style="margin:14px 0 2px">${nom}</h1>
-    <p class="sous-titre" style="margin:0 0 6px">${t(`ty_${s.t}`)}${s.v ? ` · ${s.v}` : ''}</p>
+    <p class="sous-titre" style="margin:0 0 6px">${t(`ty_${s.t}`)}${s.v ? ` · ${echapper(s.v)}` : ''}</p>
     <section class="guide">
       <div class="boussole" id="boussole">
         <div class="rose" id="rose">

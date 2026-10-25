@@ -27,6 +27,7 @@ const TYPES = {
   '.json': 'application/json',
   '.webmanifest': 'application/manifest+json',
   '.mp3': 'audio/mpeg',
+  '.png': 'image/png',
 };
 
 function json(res, statut, corps) {
@@ -262,8 +263,14 @@ async function routeWhatsapp(req, res) {
 
 async function servirFichier(res, chemin) {
   const relatif = chemin === '/' ? 'index.html' : chemin.endsWith('/') ? `${chemin}index.html` : chemin;
-  const fichier = path.normalize(path.join(dossierPublic, decodeURIComponent(relatif)));
-  if (!fichier.startsWith(dossierPublic)) return json(res, 403, { erreur: 'Interdit' });
+  let decode;
+  try {
+    decode = decodeURIComponent(relatif);
+  } catch {
+    return json(res, 400, { erreur: 'Adresse invalide' });
+  }
+  const fichier = path.normalize(path.join(dossierPublic, decode));
+  if (!fichier.startsWith(dossierPublic + path.sep)) return json(res, 403, { erreur: 'Interdit' });
   const avecExt = path.extname(fichier) ? fichier : `${fichier}.html`;
   try {
     const contenu = await readFile(avecExt);
@@ -280,6 +287,12 @@ const admin = routesAdmin(db, lireCorps, (req) => lireTexte(req, 3_000_000));
 const serveur = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const cle = `${req.method} ${url.pathname}`;
+  // En-têtes de sécurité de base. Pas de CSP stricte : les pages ont des scripts en ligne.
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+  res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(), microphone=()');
   try {
     if (cle === 'POST /api/whatsapp') return await routeWhatsapp(req, res);
     if (LIMITES[cle] && limiteDepassee(req, cle)) {
@@ -305,7 +318,8 @@ const serveur = http.createServer(async (req, res) => {
       return json(res, 200, r);
     }
     if (url.pathname.startsWith('/api/')) return json(res, 404, { erreur: 'Route inconnue' });
-    if (req.method !== 'GET') return json(res, 405, { erreur: 'Méthode non autorisée' });
+    // HEAD sert aux aperçus de liens (WhatsApp, Facebook) : Node n'envoie alors que les en-têtes.
+    if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { erreur: 'Méthode non autorisée' });
     return await servirFichier(res, url.pathname);
   } catch (e) {
     if (e instanceof ErreurMetier) return json(res, 400, { erreur: e.message });

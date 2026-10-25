@@ -102,6 +102,12 @@ function trouverVille(t) {
 const sessions = new Map();
 const DUREE_SESSION_MS = 30 * 60 * 1000;
 
+// Ménage des conversations abandonnées, pour que la mémoire du serveur ne grossisse pas.
+setInterval(() => {
+  const maintenant = Date.now();
+  for (const [numero, s] of sessions) if (s.expire < maintenant) sessions.delete(numero);
+}, 10 * 60 * 1000).unref();
+
 const AIDE = [
   '✚ *Dawa* : urgences médicales au Sénégal (gratuit).',
   '',
