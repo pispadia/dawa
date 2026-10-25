@@ -106,5 +106,5 @@ Tout est stocké dans la table `numeros` de `data/dawa.db`, avec la source, la d
 - **Pas encore d'USSD** : il faut un accord avec les opérateurs.
 - **Le wolof est une première traduction** : à faire relire par un locuteur. Les fiches restent en français, et l'audio wolof est à enregistrer (`public/audio/<fiche>-wo.mp3`, par exemple `serpent-wo.mp3`).
 - **Les fiches de premiers secours sont un brouillon** : elles doivent être validées par un professionnel de santé avant tout lancement public.
-- **Les numéros 1515, 18 et 17** sont à reconfirmer auprès des autorités avant le lancement.
+- **Les numéros 1515, 18 et 17** ont été testés le 25 octobre 2026 : ils passent gratuitement, même sans crédit. Une confirmation écrite a été demandée au SAMU et aux opérateurs.
 - **La partie pharmacies (Dakar) utilise des données fictives.**

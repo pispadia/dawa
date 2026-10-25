@@ -15,7 +15,7 @@ const TEXTES = {
     alerte_titre: 'Alerte lancée',
     position_cherche: 'Recherche de ta position…',
     position_ok: 'Ta position est trouvée (précision ± {m} m)',
-    appel_gratuit: 'Appels gratuits, normalement possibles même sans crédit.',
+    appel_gratuit: 'Appels gratuits, même sans crédit.',
     dire_position: 'Si on te demande où tu es, lis ceci :',
     pres_de: 'près de {lieu}', zone_de: 'zone de {ville}',
     la_plus_proche: 'La plus proche', la_plus_proche_joignable: 'La plus proche joignable par téléphone',
