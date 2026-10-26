@@ -6,10 +6,11 @@ Application gratuite pour les urgences médicales, pensée pour les zones où le
   - l'appel au 1515 (SAMU) ou au 18 (pompiers) ;
   - un SMS déjà rempli avec la position GPS et la fiche médicale, pour les proches et pour la structure de santé joignable la plus proche ;
   - les gestes de premiers secours à faire en attendant.
-- **Santé proche** : hôpitaux, centres, postes et cases de santé, maternités et pharmacies de tout le Sénégal, triés par distance, avec appel et itinéraire. Ça marche avec le GPS ou une ville choisie.
-- **Premiers secours** : 11 fiches (inconscient, étouffement, saignement, accouchement, serpent, scorpion, brûlure, convulsions, accident, diarrhée, fièvre). Le bouton « Écouter » les lit à voix haute.
+- **Santé proche** : hôpitaux, centres, postes et cases de santé, maternités et pharmacies de tout le Sénégal, triés par distance, avec appel et itinéraire. Ça marche avec le GPS ou une ville choisie. Affichage en **liste** (hors ligne) ou sur une **carte** (Leaflet + fond OpenStreetMap, internet nécessaire).
+- **Premiers secours** : 11 fiches (inconscient, étouffement, saignement, accouchement, serpent, scorpion, brûlure, convulsions, accident, diarrhée, fièvre). Le bouton « Écouter » les lit à voix haute ; en wolof, il joue l'enregistrement fait par l'équipe s'il existe.
 - **Ma fiche** : groupe sanguin, allergies, maladies, traitements et contacts d'urgence. Elle est stockée **uniquement sur le téléphone**.
-- **Langues** : français et wolof.
+- **Partager Dawa** : bouton sur l'écran d'accueil (feuille de partage du téléphone, sinon WhatsApp).
+- **Langues** : français, wolof et pulaar (ébauche).
 - **Hors ligne** : l'app s'installe sur Android (PWA) et s'ouvre sans internet. Les structures de santé et les fiches sont gardées sur le téléphone.
 - **Bot WhatsApp** : il répond à « urgence », à une position partagée, à « hôpital + ville » et à « serpent », « brûlure », etc. Il garde la recherche de médicaments à Dakar.
 
@@ -75,12 +76,17 @@ Un numéro vérifié s'affiche avec **✔ vérifié** dans l'app et dans le bot 
 
 Tout est stocké dans la table `numeros` de `data/dawa.db`, avec la source, la date et une note.
 
+## Enregistrer l'audio wolof des fiches
+
+Espace équipe › onglet **Audio wolof** (de préférence sur un téléphone Android avec Chrome). Pour chaque fiche, le texte français est affiché : une personne qui parle bien wolof le lit en le traduisant, puis réécoute et appuie sur « Publier ». 5 minutes au plus par fiche. L'enregistrement est sauvegardé dans Supabase (table `audio_fiches`) et joué dans l'app quand la langue WO est choisie. Sur un téléphone, il reste disponible hors ligne une fois écouté.
+
 ## Fichiers
 
 | Fichier | Rôle |
 |---|---|
 | `public/index.html`, `app.js`, `app.css` | Application d'urgence (SOS, santé proche, secours, fiche) |
-| `public/i18n.js` | Textes en français et en wolof |
+| `public/i18n.js` | Textes en français, wolof et pulaar |
+| `audio.js` | Audio wolof des fiches (enregistrement équipe, sauvegarde Supabase) |
 | `public/secours.js` | Fiches de premiers secours |
 | `public/villes.js` | Coordonnées des villes (sans GPS), partagées avec le bot |
 | `public/sw.js`, `manifest.webmanifest` | Mode hors ligne et installation |
@@ -105,7 +111,9 @@ Tout est stocké dans la table `numeros` de `data/dawa.db`, avec la source, la d
 - **Le SMS n'est pas envoyé automatiquement** : il s'ouvre déjà rempli et il faut appuyer sur « Envoyer ». L'envoi automatique demandera une vraie app Android (Capacitor).
 - **La position n'est pas transmise au SAMU** : il faudra un partenariat avec lui.
 - **Pas encore d'USSD** : il faut un accord avec les opérateurs.
-- **Le wolof est une première traduction** : à faire relire par un locuteur. Les fiches restent en français, et l'audio wolof est à enregistrer (`public/audio/<fiche>-wo.mp3`, par exemple `serpent-wo.mp3`).
+- **Le wolof est une première traduction** : à faire relire par un locuteur. Les fiches restent écrites en français ; l'audio wolof est à enregistrer par l'équipe (voir plus haut).
+- **Le pulaar est une ébauche** limitée aux textes principaux (les autres restent en français) : un bandeau le signale. À faire relire et compléter par une personne qui parle pulaar.
+- **La carte demande internet** (fond OpenStreetMap). Hors ligne, la liste reste disponible.
 - **Les fiches de premiers secours sont un brouillon** : elles doivent être validées par un professionnel de santé avant tout lancement public.
 - **Les numéros 1515, 18 et 17** ont été testés le 25 octobre 2026 : ils passent gratuitement, même sans crédit. Une confirmation écrite a été demandée au SAMU et aux opérateurs.
 - **La partie pharmacies (Dakar) utilise des données fictives.**

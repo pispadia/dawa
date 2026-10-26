@@ -10,6 +10,7 @@ import { repondre } from './bot.js';
 import { chargerBase, publier, structuresBase, normaliserTel } from './structures.js';
 import { routesAdmin, estAdmin, Fichier, JETON_ADMIN } from './admin.js';
 import { persistanceActive, restaurer, inserer } from './persistance.js';
+import { restaurerAudio, fichesAvecAudio, lireAudio, routesAudio } from './audio.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const dossierPublic = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
@@ -19,7 +20,9 @@ chargerBase();
 if (persistanceActive) {
   const bilan = await restaurer(db);
   console.log(`Données de l'équipe restaurées depuis Supabase : ${JSON.stringify(bilan)}`);
+  console.log(`Audios wolof restaurés : ${await restaurerAudio(db)}`);
 } else {
+  await restaurerAudio(db);
   console.log('Supabase non configuré : numéros et signalements restent sur le disque local.');
 }
 publier(db);
@@ -115,6 +118,7 @@ setInterval(() => {
 
 const publiques = {
   'GET /api/quartiers': () => Object.keys(QUARTIERS),
+  'GET /api/audio': () => ({ wo: fichesAvecAudio(db) }),
 
   'GET /api/suggestions': (req, url) => chercherMedicaments(db, url.searchParams.get('q') || '', 6),
 
@@ -289,8 +293,21 @@ async function servirFichier(res, chemin) {
   }
 }
 
-// L'import CSV peut dépasser la limite des requêtes JSON.
-const admin = routesAdmin(db, lireCorps, (req) => lireTexte(req, 3_000_000));
+// L'import CSV et les enregistrements audio dépassent la limite des requêtes JSON.
+const admin = {
+  ...routesAdmin(db, lireCorps, (req) => lireTexte(req, 3_000_000)),
+  ...routesAudio(db, (req) => lireTexte(req, 4_500_000)),
+};
+
+// /audio/<fiche>-wo : enregistrement déposé par l'équipe.
+function servirAudio(res, chemin) {
+  const m = /^\/audio\/([a-z0-9-]+)-wo$/.exec(chemin);
+  const a = m && lireAudio(db, m[1]);
+  if (!a) return false;
+  res.writeHead(200, { 'Content-Type': a.mime, 'Content-Length': a.donnees.length, 'Cache-Control': 'no-cache' });
+  res.end(a.donnees);
+  return true;
+}
 
 const serveur = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -300,7 +317,7 @@ const serveur = http.createServer(async (req, res) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-  res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(), microphone=()');
+  res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(), microphone=(self)');
   try {
     if (cle === 'POST /api/whatsapp') return await routeWhatsapp(req, res);
     if (LIMITES[cle] && limiteDepassee(req, cle)) {
@@ -328,6 +345,7 @@ const serveur = http.createServer(async (req, res) => {
     if (url.pathname.startsWith('/api/')) return json(res, 404, { erreur: 'Route inconnue' });
     // HEAD sert aux aperçus de liens (WhatsApp, Facebook) : Node n'envoie alors que les en-têtes.
     if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { erreur: 'Méthode non autorisée' });
+    if (url.pathname.startsWith('/audio/') && servirAudio(res, url.pathname)) return;
     return await servirFichier(res, url.pathname);
   } catch (e) {
     if (e instanceof ErreurMetier) return json(res, 400, { erreur: e.message });

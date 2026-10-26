@@ -1,7 +1,7 @@
 // Fiches de premiers secours.
 // ⚠️ BROUILLON : rédigé d'après les recommandations générales de premiers secours (Croix-Rouge, OMS).
 // Chaque fiche doit être relue et validée par un professionnel de santé avant le lancement public.
-// Audio wolof : déposer un fichier public/audio/<id>-wo.mp3, il sera proposé automatiquement.
+// Audio wolof : enregistré par l'équipe dans /equipe, onglet « Audio wolof » (voir audio.js).
 
 export const FICHES = [
   {

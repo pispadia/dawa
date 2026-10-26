@@ -1,5 +1,5 @@
-// Textes de l'interface en français et en wolof.
-// ⚠️ Le wolof est une première traduction : à faire relire par un locuteur avant le lancement.
+// Textes de l'interface en français, en wolof et en pulaar.
+// ⚠️ Le wolof et le pulaar sont des premières traductions : à faire relire par un locuteur avant le lancement.
 const TEXTES = {
   fr: {
     nav_sos: 'Urgence', nav_proche: 'Santé proche', nav_secours: 'Secours', nav_fiche: 'Ma fiche',
@@ -85,6 +85,13 @@ const TEXTES = {
     sms_position: 'Position : {lien} (± {m} m)',
     sms_sans_position: 'Position inconnue, appelle-moi.',
     sms_fin: 'Envoyé avec Dawa.',
+    partager: 'Partager Dawa',
+    partage_texte: 'Dawa : l\'app gratuite pour les urgences médicales au Sénégal (SOS 1515, structures de santé proches, premiers secours). Elle marche même sans internet.',
+    vue_liste: 'Liste', vue_carte: 'Carte',
+    carte_hors_ligne: 'La carte a besoin d\'internet. La liste, elle, marche sans connexion.',
+    vous_etes_ici: 'Tu es ici',
+    audio_wolof: 'Lecture en wolof (enregistré par l\'équipe).',
+    a_relire: 'Traduction pulaar en cours de relecture : certains textes restent en français.',
     km: 'km', m: 'm',
   },
   wo: {
@@ -171,17 +178,49 @@ const TEXTES = {
     sms_position: 'Fi mu nekk : {lien} (± {m} m)',
     sms_sans_position: 'Xamuñu fi mu nekk, woo ko.',
     sms_fin: 'Dawa moo ko yónnee.',
+    partager: 'Séddoo Dawa',
+    partage_texte: 'Dawa : aplikasiyoŋ bu dul fey ngir jamono yu metti ci wér-gu-yaram ci Senegaal (SOS 1515, fajukaay yu jege, ndimbal yu jëkk). Mënul internet sax.',
+    vue_liste: 'Lim bi', vue_carte: 'Kart bi',
+    carte_hors_ligne: 'Kart bi soxla na internet. Lim bi mi ngi dox te amul internet.',
+    vous_etes_ici: 'Fii nga nekk',
+    audio_wolof: 'Ci wolof (ndawu Dawa ñoo ko jàng).',
+    km: 'km', m: 'm',
+  },
+  // Pulaar : première ébauche limitée aux textes les plus visibles, À FAIRE RELIRE.
+  // Les textes absents s'affichent en français.
+  ff: {
+    nav_sos: 'Ballal', nav_proche: 'Cellal ɓadiiɗo', nav_secours: 'Ballal adanal', nav_fiche: 'Kaayit am',
+    sos_titre: 'Hiɗa haaji ballal jooni ?',
+    sos_aide: 'Ñoƴƴu butoŋ oo. Men mballete ma noddude ballal, humpitaa ɓesngu maa nokku mo ngonɗaa.',
+    numeros: 'Nimerooji ballal',
+    pompiers: 'Pompiyeeɓe', police: 'Poliis',
+    quel_type: 'Ko honɗum waɗi ?',
+    t_accouchement: 'Jibinde', t_accident: 'Aksidaa', t_morsure: 'Ŋatu mboddi', t_enfant: 'Cukalel nawnungel', t_autre: 'Goɗɗum feere',
+    annuler: 'Haaytu', retour: 'Rutto',
+    appeler: 'Noddu', envoyer: 'Neldu', itineraire: 'Laawol',
+    proche_titre: 'Nokkuuji cellal ɓadiiɗi',
+    ma_position: 'Huutoro nokku am', ou_choisir: 'walla suɓo saare',
+    secours_titre: 'Ballal adanal',
+    ecouter: 'Heddo', arreter: 'Dartin',
+    fiche_titre: 'Kaayit cellal am',
+    enregistrer: 'Danndu', enregistre: 'Danndaama e telefon oo.',
+    sms_texte: 'URGENCE ({type}) : {nom} ina haaji ballal.',
+    partager: 'Senndu Dawa',
+    vue_liste: 'Doggol', vue_carte: 'Kartal',
+    vous_etes_ici: 'Ɗoo ngonɗaa',
+    signale_merci: 'A jaaraama !',
     km: 'km', m: 'm',
   },
 };
 
+const LANGUES = ['fr', 'wo', 'ff'];
 let langue = 'fr';
-try { langue = localStorage.getItem('dawa.langue') === 'wo' ? 'wo' : 'fr'; } catch {}
+try { langue = LANGUES.includes(localStorage.getItem('dawa.langue')) ? localStorage.getItem('dawa.langue') : 'fr'; } catch {}
 
 export const langueActuelle = () => langue;
 
 export function changerLangue(l) {
-  langue = l === 'wo' ? 'wo' : 'fr';
+  langue = LANGUES.includes(l) ? l : 'fr';
   try { localStorage.setItem('dawa.langue', langue); } catch {}
   document.documentElement.lang = langue;
 }

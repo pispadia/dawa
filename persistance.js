@@ -18,14 +18,14 @@ const COLONNES = {
 // Même format que datetime('now') de SQLite : « 2026-10-26 09:15:00 » (UTC).
 export const maintenant = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-async function requete(chemin, { methode = 'GET', corps } = {}) {
+export async function requete(chemin, { methode = 'GET', corps, prefer = 'return=representation' } = {}) {
   const res = await fetch(`${URL_API}/${chemin}`, {
     method: methode,
     headers: {
       apikey: CLE,
       'x-dawa-secret': SECRET,
       'Content-Type': 'application/json',
-      Prefer: 'return=representation',
+      Prefer: prefer,
     },
     body: corps ? JSON.stringify(corps) : undefined,
     signal: AbortSignal.timeout(15000),

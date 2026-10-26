@@ -22,9 +22,10 @@ body.app { padding-bottom: calc(var(--barre-h) + env(safe-area-inset-bottom)); }
 
 .choix-langue { display: inline-flex; border: 1px solid var(--bordure); border-radius: 999px; overflow: hidden; }
 .choix-langue button {
-  border: 0; background: none; padding: 6px 12px; font-weight: 600; font-size: .85rem; color: var(--texte-doux); cursor: pointer;
+  border: 0; background: none; padding: 6px 10px; font-weight: 600; font-size: .85rem; color: var(--texte-doux); cursor: pointer;
 }
 .choix-langue button[aria-pressed="true"] { background: var(--vert); color: #fff; }
+.avis-langue { margin: 0; padding: 6px 16px; font-size: .8rem; text-align: center; background: #fff4e5; color: #8a4b00; }
 
 .vue { padding-block: 20px 28px; }
 .vue h1 { font-size: 1.5rem; }
@@ -139,6 +140,13 @@ body.app { padding-bottom: calc(var(--barre-h) + env(safe-area-inset-bottom)); }
   border-radius: 999px; padding: 7px 12px; font: inherit; font-size: .88rem; cursor: pointer;
 }
 .filtres button[aria-pressed="true"] { background: var(--vert); border-color: var(--vert); color: #fff; }
+
+.bascule-affichage { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--bordure); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+.bascule-affichage button { border: 0; background: var(--surface); color: var(--texte); font: inherit; font-weight: 700; padding: 10px; cursor: pointer; }
+.bascule-affichage button[aria-pressed="true"] { background: var(--vert); color: #fff; }
+.carte-structures { height: 62vh; min-height: 320px; border-radius: 14px; overflow: hidden; border: 1px solid var(--bordure); margin-bottom: 12px; background: var(--surface); }
+.carte-structures .vide { padding: 40px 16px; }
+.carte-structures .leaflet-popup-content { font: inherit; font-size: .92rem; line-height: 1.5; }
 
 .structure { display: grid; gap: 8px; padding: 14px 16px; }
 .structure-tete { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }

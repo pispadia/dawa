@@ -157,7 +157,23 @@ function vueSos() {
       <button class="bouton-sos" data-action="sos" aria-label="SOS">${t('sos_bouton')}</button>
       <div class="titre-section">${t('numeros')}</div>
       ${blocNumeros()}
+      <button class="bouton enorme secondaire" data-action="partager" style="margin-top:20px">📤 ${t('partager')}</button>
     </section>`;
+}
+
+// Partage du lien de l'app : feuille de partage du téléphone si elle existe, sinon WhatsApp.
+async function partager() {
+  const url = location.origin + '/';
+  const texte = t('partage_texte');
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Dawa', text: texte, url });
+      return;
+    } catch (e) {
+      if (e?.name === 'AbortError') return; // la personne a fermé la fenêtre de partage
+    }
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(`${texte} ${url}`)}`, '_blank', 'noopener');
 }
 
 const blocNumeros = () => `<div class="numeros">${NUMEROS.map((x) => `
@@ -344,6 +360,64 @@ function terminerAlerte() {
 // Par défaut tous les lieux de soins : en urgence, le plus proche compte plus que le type.
 let filtreProche = 'tous';
 let rechercheProcheEnCours = false;
+let affichageProche = lire('dawa.affichage', 'liste'); // 'liste' ou 'carte'
+
+// --- Carte (Leaflet, chargée seulement si on l'ouvre ; le fond de carte demande internet) ---
+const LEAFLET = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/';
+let carteLeaflet = null;
+let promesseLeaflet = null;
+const COULEURS_TYPES = {
+  hopital: '#d92d20', centre: '#e8590c', maternite: '#c2185b', poste: '#0f7b5a',
+  case: '#2f9e44', clinique: '#1d5fa8', cabinet: '#5f3dc4', pharmacie: '#0b7285',
+};
+
+function chargerLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  promesseLeaflet ??= new Promise((resoudre, rejeter) => {
+    const css = Object.assign(document.createElement('link'), { rel: 'stylesheet', href: `${LEAFLET}leaflet.min.css` });
+    const js = Object.assign(document.createElement('script'), { src: `${LEAFLET}leaflet.min.js` });
+    js.onload = () => resoudre(window.L);
+    js.onerror = () => { promesseLeaflet = null; rejeter(new Error('leaflet')); };
+    document.head.append(css, js);
+  });
+  return promesseLeaflet;
+}
+
+function detruireCarte() {
+  if (carteLeaflet) { carteLeaflet.remove(); carteLeaflet = null; }
+}
+
+async function afficherCarte(liste) {
+  const zone = document.getElementById('carte-structures');
+  const o = origine();
+  if (!zone || !o) return;
+  let L;
+  try {
+    L = await chargerLeaflet();
+  } catch {
+    zone.innerHTML = `<p class="vide">🗺️ ${t('carte_hors_ligne')}</p>`;
+    return;
+  }
+  if (!document.getElementById('carte-structures')) return; // l'écran a changé entre-temps
+  detruireCarte();
+  carteLeaflet = L.map(zone, { zoomControl: true }).setView(o, 12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© les contributeurs d\'OpenStreetMap',
+  }).addTo(carteLeaflet);
+  L.circleMarker(o, { radius: 9, color: '#fff', weight: 3, fillColor: '#1d5fa8', fillOpacity: 1 })
+    .addTo(carteLeaflet).bindPopup(`<b>${t('vous_etes_ici')}</b>`);
+  const points = [o];
+  for (const s of liste) {
+    const tel = s.tel ? `<a href="${lienTel(s.tel)}">📞 ${t('appeler')}</a> · ` : '';
+    L.circleMarker([s.la, s.lo], { radius: 8, color: '#fff', weight: 2, fillColor: COULEURS_TYPES[s.t] || '#555', fillOpacity: 0.95 })
+      .addTo(carteLeaflet)
+      .bindPopup(`<b>${echapper(nomStructure(s))}</b><br>${t(`ty_${s.t}`)} · ${formatDistance(s.km)}<br>${tel}<a href="#guide/${s.id}">🧭 ${t('guider')}</a>`);
+    points.push([s.la, s.lo]);
+  }
+  // On cadre sur les 5 plus proches pour rester lisible.
+  carteLeaflet.fitBounds(L.latLngBounds(points.slice(0, 6)), { padding: [30, 30], maxZoom: 15 });
+}
 
 function vueProche() {
   const o = origine();
@@ -368,7 +442,12 @@ function vueProche() {
       <button data-action="filtre" data-filtre="${f}" aria-pressed="${f === filtreProche}">${t(libelleFiltre[f])}</button>`).join('')}
     </div>
     ${filtreProche === 'pharmacie' ? `<a class="carte" href="/pharmacies" style="display:block;margin-bottom:10px;text-decoration:none">💊 ${t('pharmacies_garde')} →</a>` : ''}
-    <div class="liste-pharmas">${!o ? '' : !structures ? '<p class="vide">…</p>' : liste.map((s) => `
+    ${o ? `<div class="bascule-affichage" role="group">
+      <button data-action="affichage" data-affichage="liste" aria-pressed="${affichageProche === 'liste'}">📋 ${t('vue_liste')}</button>
+      <button data-action="affichage" data-affichage="carte" aria-pressed="${affichageProche === 'carte'}">🗺️ ${t('vue_carte')}</button>
+    </div>` : ''}
+    ${o && affichageProche === 'carte' ? `<div id="carte-structures" class="carte-structures"><p class="vide">…</p></div>` : ''}
+    <div class="liste-pharmas ${affichageProche === 'carte' ? 'cache' : ''}">${!o ? '' : !structures ? '<p class="vide">…</p>' : liste.map((s) => `
       <article class="carte structure">
         <div class="structure-tete">
           <div>
@@ -449,12 +528,21 @@ function vueFicheSecours(id) {
     <div class="ligne-boutons" style="margin-top:10px">
       <button class="bouton secondaire" data-action="ecouter" data-id="${f.id}">🔊 ${t('ecouter')}</button>
     </div>
-    ${l === 'wo' ? `<p class="aide-petite" style="margin-top:8px">${t('audio_wolof_bientot')}</p>` : ''}
+    ${l === 'wo' ? `<p class="aide-petite" style="margin-top:8px">${t(audiosWolof.includes(f.id) ? 'audio_wolof' : 'audio_wolof_bientot')}</p>` : ''}
     <section class="carte bloc"><h2>✅ ${t('a_faire')}</h2><ol class="etapes">${f.faire.map((x) => `<li><span>${echapper(x)}</span></li>`).join('')}</ol></section>
     <section class="carte bloc"><h2>🚫 ${t('a_eviter')}</h2><ul class="liste-eviter">${f.eviter.map((x) => `<li>${echapper(x)}</li>`).join('')}</ul></section>
     ${f.danger ? `<section class="carte bloc"><h2>⚠️ ${t('danger')}</h2><ul class="liste-danger">${f.danger.map((x) => `<li>${echapper(x)}</li>`).join('')}</ul></section>` : ''}
     <p class="avertissement" style="margin-top:16px">⚠️ ${t('a_valider')}</p>`;
 }
+
+// Fiches qui ont un enregistrement en wolof (liste gardée pour le hors ligne).
+let audiosWolof = lire('dawa.audios', []);
+fetch('/api/audio').then((r) => r.json()).then((r) => {
+  const avant = audiosWolof.join();
+  audiosWolof = r.wo || [];
+  ecrire('dawa.audios', audiosWolof);
+  if (avant !== audiosWolof.join() && location.hash.startsWith('#secours/')) rendre();
+}).catch(() => {});
 
 let lectureEnCours = null;
 function ecouter(id, bouton) {
@@ -477,9 +565,9 @@ function ecouter(id, bouton) {
     lectureEnCours = { stop: () => { speechSynthesis.cancel(); finir(); } };
   };
   bouton.textContent = `⏹ ${t('arreter')}`;
-  // Un enregistrement en wolof, s'il a été déposé dans /audio, passe en priorité.
-  if (langueActuelle() === 'wo') {
-    const audio = new Audio(`/audio/${id}-wo.mp3`);
+  // L'enregistrement en wolof de l'équipe passe en priorité ; sinon, lecture du texte français.
+  if (langueActuelle() === 'wo' && audiosWolof.includes(id)) {
+    const audio = new Audio(`/audio/${id}-wo`);
     audio.onended = finir;
     audio.onerror = lireTexteFrancais;
     audio.play().catch(lireTexteFrancais);
@@ -571,8 +659,12 @@ function rendre() {
   document.getElementById('barre-nav').innerHTML = ONGLETS.map(([id, icone, cle]) => `
     <a href="#${id}" class="${id === 'sos' ? 'nav-sos' : ''}" ${id === onglet ? 'aria-current="page"' : ''}><span>${icone}</span><span>${t(cle)}</span></a>`).join('');
   document.querySelectorAll('[data-langue]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.langue === langueActuelle()));
+  const avisLangue = document.getElementById('avis-langue');
+  avisLangue.textContent = langueActuelle() === 'ff' ? `⚠️ ${tFr('a_relire')}` : '';
+  avisLangue.classList.toggle('cache', langueActuelle() !== 'ff');
 
   if (onglet !== 'guide') arreterGuide();
+  detruireCarte();
 
   if (onglet === 'guide') {
     if (!structures) {
@@ -587,6 +679,7 @@ function rendre() {
   } else if (onglet === 'proche') {
     vue.innerHTML = vueProche();
     if (!structures) chargerStructures().then(() => location.hash.startsWith('#proche') && rendre());
+    else if (affichageProche === 'carte') afficherCarte(plusProches(FILTRES[filtreProche], 25));
   } else if (onglet === 'secours') {
     vue.innerHTML = param ? vueFicheSecours(param) : vueSecours();
   } else if (onglet === 'fiche') {
@@ -629,6 +722,8 @@ vue.addEventListener('click', (e) => {
       rendre();
     });
   } else if (action === 'filtre') { filtreProche = el.dataset.filtre; rendre(); }
+  else if (action === 'affichage') { affichageProche = el.dataset.affichage; ecrire('dawa.affichage', affichageProche); rendre(); }
+  else if (action === 'partager') partager();
   else if (action === 'signaler') signaler(el.dataset.id);
   else if (action === 'proposer-numero') proposerNumero(el.dataset.id);
   else if (action === 'guide-retour') { if (history.length > 1) history.back(); else location.hash = '#proche'; }

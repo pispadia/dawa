@@ -64,6 +64,7 @@
         <button role="tab" data-onglet="propositions" aria-selected="false">Propositions <span id="nb-prop" class="pastille verte cache"></span></button>
         <button role="tab" data-onglet="signalements" aria-selected="false">Signalements <span id="nb-sig" class="pastille orange cache"></span></button>
         <button role="tab" data-onglet="excel" aria-selected="false">Campagne d'appels</button>
+        <button role="tab" data-onglet="audio" aria-selected="false">Audio wolof</button>
       </div>
 
       <div data-panneau="structures">
@@ -149,11 +150,19 @@
           <div id="resultat-import"></div>
         </div>
       </div>
+
+      <div data-panneau="audio" class="cache">
+        <p class="dci">Une personne qui parle bien wolof lit chaque fiche à voix haute, au calme, téléphone à 20 cm de la bouche.
+          Le texte français est affiché pour l'aider. L'enregistrement est joué dans l'app quand la langue WO est choisie.
+          Idéalement, faire valider le contenu par un soignant avant d'enregistrer.</p>
+        <div id="liste-audio" class="liste-pharmas"></div>
+      </div>
     </section>
   </main>
 
   <script type="module">
     import { api, echapper, toast } from '/commun.js';
+    import { FICHES } from '/secours.js';
 
     const $ = (id) => document.getElementById(id);
     let jeton = null;
@@ -198,6 +207,7 @@
       document.querySelectorAll('[data-panneau]').forEach((p) => p.classList.toggle('cache', p.dataset.panneau !== nom));
       if (nom === 'propositions') chargerPropositions();
       if (nom === 'signalements') chargerSignalements();
+      if (nom === 'audio') chargerAudio();
     }
 
     async function demarrer() {
@@ -395,6 +405,113 @@
       e.target.value = '';
       chargerStats();
     });
+
+    // --- Audio wolof ----------------------------------------------------------
+    // Enregistrement dans le navigateur (MediaRecorder), envoyé en base64.
+    let enregistreur = null;
+    const prises = new Map(); // fiche_id -> { blob, mime } en attente d'envoi
+
+    async function chargerAudio() {
+      const existants = new Map((await appel('/api/admin/audio')).map((a) => [a.fiche_id, a]));
+      $('liste-audio').innerHTML = FICHES.map((f) => {
+        const a = existants.get(f.id);
+        return `<article class="carte ligne-structure" data-fiche="${f.id}">
+          <div class="tete"><b>${f.icone} ${echapper(f.titre.fr)}</b>
+            ${a ? `<span class="pastille verte">✔ Enregistré le ${new Date(`${a.maj}Z`).toLocaleDateString('fr-FR')} (${Math.round(a.octets / 1024)} Ko)</span>` : '<span class="pastille">Pas encore enregistré</span>'}</div>
+          <details><summary style="cursor:pointer">Texte à lire (à traduire en wolof)</summary>
+            <p style="margin:8px 0 4px"><b>À faire :</b></p><ol style="margin:0">${f.faire.map((x) => `<li>${echapper(x)}</li>`).join('')}</ol>
+            <p style="margin:8px 0 4px"><b>À ne surtout pas faire :</b></p><ul style="margin:0">${f.eviter.map((x) => `<li>${echapper(x)}</li>`).join('')}</ul>
+            ${f.danger ? `<p style="margin:8px 0 4px"><b>Va vite au poste de santé si :</b></p><ul style="margin:0">${f.danger.map((x) => `<li>${echapper(x)}</li>`).join('')}</ul>` : ''}
+          </details>
+          ${a ? `<audio controls preload="none" src="/audio/${f.id}-wo?v=${encodeURIComponent(a.maj)}" style="width:100%"></audio>` : ''}
+          <div class="ligne-boutons">
+            <button class="bouton petit" data-audio="enregistrer">⏺ ${a ? 'Refaire l\'enregistrement' : 'Enregistrer'}</button>
+            ${a ? '<button class="bouton petit danger" data-audio="supprimer">✕ Supprimer</button>' : ''}
+          </div>
+          <div class="prise"></div>
+        </article>`;
+      }).join('');
+    }
+
+    $('liste-audio').addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-audio]');
+      if (!b) return;
+      const bloc = b.closest('[data-fiche]');
+      const id = bloc.dataset.fiche;
+      try {
+        if (b.dataset.audio === 'enregistrer') await demarrerEnregistrement(bloc, b);
+        else if (b.dataset.audio === 'arreter') enregistreur?.stop();
+        else if (b.dataset.audio === 'envoyer') {
+          const p = prises.get(id);
+          b.disabled = true;
+          b.textContent = 'Envoi…';
+          const donnees = await enBase64(p.blob);
+          const r = await appel('/api/admin/audio', { methode: 'POST', corps: { fiche_id: id, mime: p.mime, donnees } });
+          prises.delete(id);
+          toast(`Enregistrement publié (${Math.round(r.octets / 1024)} Ko). Il est joué dans l'app en wolof.`);
+          await chargerAudio();
+        } else if (b.dataset.audio === 'supprimer') {
+          if (!confirm('Supprimer cet enregistrement de l\'app ?')) return;
+          await appel('/api/admin/audio/supprimer', { methode: 'POST', corps: { fiche_id: id } });
+          toast('Enregistrement supprimé.');
+          await chargerAudio();
+        }
+      } catch (err) {
+        toast(err.message);
+        if (b.dataset.audio === 'envoyer') { b.disabled = false; b.textContent = '⬆ Publier'; }
+      }
+    });
+
+    async function demarrerEnregistrement(bloc, bouton) {
+      if (enregistreur) return toast('Un enregistrement est déjà en cours.');
+      if (!window.MediaRecorder) return toast('Ce navigateur ne sait pas enregistrer. Essaie Chrome sur Android.');
+      let flux;
+      try {
+        flux = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      } catch {
+        return toast('Micro refusé ou introuvable. Autorise le micro pour ce site.');
+      }
+      const mime = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
+      const morceaux = [];
+      enregistreur = new MediaRecorder(flux, { ...(mime && { mimeType: mime }), audioBitsPerSecond: 48000 });
+      enregistreur.ondataavailable = (ev) => ev.data.size && morceaux.push(ev.data);
+      const debut = Date.now();
+      const zone = bloc.querySelector('.prise');
+      const minuteurDuree = setInterval(() => {
+        const s = Math.round((Date.now() - debut) / 1000);
+        zone.querySelector('.duree').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+        if (s >= 290) enregistreur?.stop(); // limite du serveur : environ 5 minutes
+      }, 500);
+      enregistreur.onstop = () => {
+        clearInterval(minuteurDuree);
+        flux.getTracks().forEach((piste) => piste.stop());
+        const type = (enregistreur.mimeType || mime || 'audio/webm').replace(/\s+/g, '');
+        const blob = new Blob(morceaux, { type });
+        enregistreur = null;
+        prises.set(bloc.dataset.fiche, { blob, mime: type });
+        bouton.disabled = false;
+        zone.innerHTML = `<p class="dci" style="margin:6px 0">Écoute avant de publier :</p>
+          <audio controls src="${URL.createObjectURL(blob)}" style="width:100%"></audio>
+          <div class="ligne-boutons" style="margin-top:6px">
+            <button class="bouton petit" data-audio="envoyer">⬆ Publier</button>
+            <button class="bouton petit secondaire" data-audio="enregistrer">⏺ Recommencer</button>
+          </div>`;
+      };
+      enregistreur.start(1000);
+      bouton.disabled = true;
+      zone.innerHTML = `<div class="ligne-boutons" style="align-items:center">
+        <span class="pastille orange">● Enregistrement <span class="duree">0:00</span></span>
+        <button class="bouton petit danger" data-audio="arreter">⏹ Arrêter</button></div>`;
+    }
+
+    function enBase64(blob) {
+      return new Promise((resoudre, rejeter) => {
+        const lecteur = new FileReader();
+        lecteur.onload = () => resoudre(String(lecteur.result).split(',')[1]);
+        lecteur.onerror = () => rejeter(new Error('Lecture de l\'enregistrement impossible.'));
+        lecteur.readAsDataURL(blob);
+      });
+    }
 
     if (jeton) demarrer().catch(sortir); else sortir();
   </script>
