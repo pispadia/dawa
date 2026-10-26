@@ -70,6 +70,12 @@ Les numéros arrivent par quatre chemins, et **un numéro n'est publié qu'une f
 
 **Structures manquantes** : beaucoup de postes et de cases de santé ne sont pas dans OpenStreetMap. Elles s'ajoutent dans l'espace équipe (« + Ajouter une structure ») avec un lien Google Maps ou des coordonnées, ou par le CSV (ligne avec `id` vide). Elles sont gardées en base et survivent à un nouvel import OSM.
 
+Pour préparer des listes d'appels hors ligne (CSV à réimporter + page à imprimer, numéros en double regroupés) :
+
+```bash
+node outils/listes-appels.js docs/appels Podor Richard-Toll Saint-Louis
+```
+
 Le plan de collecte est dans [docs/campagne-appels.md](docs/campagne-appels.md). Un brouillon de lettre au ministère de la Santé est dans [docs/lettre-ministere.md](docs/lettre-ministere.md) : il faut le compléter, rien n'a été envoyé.
 
 Un numéro vérifié s'affiche avec **✔ vérifié** dans l'app et dans le bot WhatsApp. Il est utilisé en priorité dans l'étape « Préviens la structure la plus proche » de l'alerte SOS. Les signalements des utilisateurs (« fermé », « mauvais endroit »…) arrivent dans l'onglet *Signalements*.
